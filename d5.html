@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 치지직 컵 드래프트 (최종수정)</title>
+    <style>
+        :root {
+            --chzzk-green: #00ffa3;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #ffffff;
+        }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        h1, h2 { text-align: center; margin: 10px 0; }
+        .accent { color: var(--chzzk-green); font-weight: bold; }
+
+        /* Layout */
+        .container {
+            width: 100%; max-width: 1100px; background: var(--card-bg);
+            padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px; display: none;
+        }
+        .container.active { display: block; }
+
+        /* Captain Select */
+        .captain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 20px; }
+        button {
+            background: #333; color: white; border: 2px solid var(--chzzk-green);
+            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { background: var(--chzzk-green); color: black; }
+        
+        /* Draft Screen */
+        .status-bar {
+            text-align: center; padding: 15px; background: #2a2a2a;
+            border-radius: 8px; margin-bottom: 20px; border: 1px solid #444;
+        }
+        .turn-msg { font-size: 1.3rem; font-weight: bold; margin-bottom: 5px; color: white; }
+        
+        /* Player Pool */
+        .pool-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 30px;
+        }
+        .player-card {
+            background: #333; padding: 10px; border-radius: 6px; text-align: center;
+            cursor: pointer; border: 1px solid #444; position: relative; overflow: hidden;
+        }
+        .player-card:hover { border-color: var(--chzzk-green); background: #444; transform: translateY(-2px); }
+        .player-card.disabled { opacity: 0.2; pointer-events: none; filter: grayscale(100%); }
+        
+        .tier-badge {
+            position: absolute; top: 0; right: 0; font-size: 0.7rem; padding: 2px 5px;
+            background: #555; color: white; border-bottom-left-radius: 5px;
+        }
+        .tier-S { background: #ff4757; color: white; }
+        .tier-A { background: #ffa502; color: black; }
+        .tier-B { background: #2ed573; color: black; }
+        .tier-C { background: #a4b0be; color: black; }
+
+        .pos-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-bottom: 4px;}
+        .pos-TOP { background: #ff5f5f; color: white; }
+        .pos-MID { background: #5fafff; color: white; }
+        .pos-BOT { background: #ffaf5f; color: black; }
+        .pos-SUP { background: #af5fff; color: white; }
+
+        /* Teams Board */
+        .teams-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-x: auto; }
+        .team-board { background: #252525; padding: 10px; border-radius: 8px; min-width: 150px; }
+        .team-board.my-team { border: 2px solid var(--chzzk-green); background: #2f3f35; }
+        .team-board.current-turn { box-shadow: 0 0 15px var(--chzzk-green); border-color: var(--chzzk-green); transform: scale(1.02); transition: 0.3s;}
+        
+        .team-header { font-weight: bold; text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; }
+        .roster-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 3px 0; }
+        .roster-row.filled { color: var(--chzzk-green); }
+        
+        /* Log */
+        .log-box {
+            height: 120px; overflow-y: auto; background: #111; border: 1px solid #333;
+            padding: 10px; margin-top: 20px; font-size: 0.85rem; color: #aaa;
+        }
+        .log-hl { color: var(--chzzk-green); font-weight: bold; }
+
+        @media (max-width: 768px) { .teams-container { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+
+    <h1>2025 <span class="accent">CHZZK CUP</span> 드래프트</h1>
+
+    <div id="screen-setup" class="container active">
+        <h2>팀장(JUNGLE)을 선택하세요</h2>
+        <p style="text-align: center; color: #aaa;">※ AI가 실력(Tier) 순으로 선수를 영입합니다!</p>
+        <div class="captain-grid" id="captain-list"></div>
+    </div>
+
+    <div id="screen-draft" class="container">
+        <div class="status-bar">
+            <div id="turn-msg" class="turn-msg">게임 준비 중...</div>
+            <div id="draft-info" style="font-size: 0.9rem; color: #ccc;"></div>
+        </div>
+
+        <h3>영입 가능 선수 (실력순)</h3>
+        <div class="pool-grid" id="pool-list"></div>
+
+        <h3>실시간 팀 상황</h3>
+        <div class="teams-container" id="team-boards"></div>
+
+        <div class="log-box" id="log-box"></div>
+    </div>
+
+    <div id="screen-result" class="container">
+        <h2>최종 로스터</h2>
+        <div class="teams-container" id="final-boards"></div>
+        <button onclick="location.reload()" style="width: 100%; margin-top: 20px;">다시 도전하기</button>
+    </div>
+
+    <script>
+        const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
+
+        const POOL_DATA = [
+            // TOP
+            { name: '운타라', pos: 'TOP', score: 95, tier: 'S' },
+            { name: '김뿡', pos: 'TOP', score: 88, tier: 'A' },
+            { name: '룩삼', pos: 'TOP', score: 78, tier: 'B' },
+            { name: '얍얍', pos: 'TOP', score: 74, tier: 'B' },
+            { name: '한동숙', pos: 'TOP', score: 65, tier: 'C' },
+            
+            // MID
+            { name: '앰비션', pos: 'MID', score: 99, tier: 'S' },
+            { name: '인섹', pos: 'MID', score: 94, tier: 'S' },
+            { name: '랄로', pos: 'MID', score: 85, tier: 'A' },
+            { name: '피닉스박', pos: 'MID', score: 77, tier: 'B' },
+            { name: '트롤야', pos: 'MID', score: 60, tier: 'C' },
+
+            // BOT
+            { name: '괴물쥐', pos: 'BOT', score: 89, tier: 'A' },
+            { name: '명예훈장', pos: 'BOT', score: 86, tier: 'A' },
+            { name: '삼식', pos: 'BOT', score: 76, tier: 'B' },
+            { name: '러너', pos: 'BOT', score: 70, tier: 'C' },
+            { name: '따효니', pos: 'BOT', score: 62, tier: 'C' },
+
+            // SUP
+            { name: '인간젤리', pos: 'SUP', score: 92, tier: 'S' },
+            { name: '순당무', pos: 'SUP', score: 87, tier: 'A' },
+            { name: '던', pos: 'SUP', score: 75, tier: 'B' },
+            { name: '푸린', pos: 'SUP', score: 72, tier: 'B' },
+            { name: '소풍왔니', pos: 'SUP', score: 68, tier: 'C' }
+        ];
+
+        let myCaptain = "";
+        let teams = {};
+        let draftOrder = []; 
+        let availablePlayers = [];
+        let pickIndex = 0;
+
+        function init() {
+            const list = document.getElementById('captain-list');
+            CAPTAINS.forEach(cap => {
+                const btn = document.createElement('button');
+                btn.innerText = cap;
+                btn.onclick = () => startGame(cap);
+                list.appendChild(btn);
+            });
+        }
+
+        function startGame(selected) {
+            try {
+                myCaptain = selected;
+                
+                // 데이터 복사 및 점수순 정렬
+                availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
+
+                // 팀 초기화 (roster 속성 없이 바로 저장)
+                teams = {}; // 전역변수 초기화
+                CAPTAINS.forEach(cap => {
+                    teams[cap] = { TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null };
+                });
+
+                draftOrder = [...CAPTAINS].sort(() => Math.random() - 0.5);
+
+                document.getElementById('screen-setup').classList.remove('active');
+                document.getElementById('screen-draft').classList.add('active');
+                
+                addLog(`드래프트 순서: ${draftOrder.join(' → ')}`);
+                
+                // 렌더링 및 턴 시작
+                renderBoards();
+                processTurn();
+
+            } catch (e) {
+                alert("오류 발생: " + e.message);
+                console.error(e);
+            }
+        }
+
+        function getCurrentPicker() {
+            const round = Math.floor(pickIndex / 5);
+            const idxInRound = pickIndex % 5;
+            const actualIdx = (round % 2 === 0) ? idxInRound : (4 - idxInRound);
+            return draftOrder[actualIdx];
+        }
+
+        function processTurn() {
+            if (pickIndex >= 20) {
+                endGame();
+                return;
+            }
+
+            const picker = getCurrentPicker();
+            const isMe = (picker === myCaptain);
+
+            const turnMsg = document.getElementById('turn-msg');
+            turnMsg.innerText = isMe ? "당신의 차례입니다!" : `${picker} 님이 고민 중...`;
+            turnMsg.style.color = isMe ? "var(--chzzk-green)" : "white";
+            
+            document.getElementById('draft-info').innerText = `라운드 ${Math.floor(pickIndex/5) + 1} / 4 (전체 ${pickIndex + 1}픽)`;
+
+            highlightBoard(picker);
+            renderPool(isMe ? teams[myCaptain] : null);
+
+            if (!isMe) {
+                setTimeout(() => aiPick(picker), 800 + Math.random() * 500);
+            }
+        }
+
+        function aiPick(pickerName) {
+            const roster = teams[pickerName];
+            const neededPos = ['TOP', 'MID', 'BOT', 'SUP'].filter(p => roster[p] === null);
+            const candidates = availablePlayers.filter(p => neededPos.includes(p.pos));
+            
+            if (candidates.length > 0) {
+                candidates.sort((a, b) => b.score - a.score);
+                const bestPick = candidates[0];
+                confirmPick(pickerName, bestPick);
+            }
+        }
+
+        function userPick(idx) {
+            const picker = getCurrentPicker();
+            if (picker !== myCaptain) return;
+
+            const player = availablePlayers[idx];
+            if (teams[myCaptain][player.pos] !== null) {
+                alert("이미 해당 포지션 선수가 있습니다!");
+                return;
+            }
+
+            confirmPick(myCaptain, player);
+        }
+
+        function confirmPick(pickerName, player) {
+            teams[pickerName][player.pos] = player.name;
+            
+            const realIdx = availablePlayers.findIndex(p => p.name === player.name && p.pos === player.pos);
+            if (realIdx > -1) availablePlayers.splice(realIdx, 1);
+
+            addLog(`[${pickerName}] ${player.name} (${player.pos}, ${player.tier}급) 영입!`);
+            
+            pickIndex++;
+            renderBoards();
+            processTurn();
+        }
+
+        function highlightBoard(picker) {
+            document.querySelectorAll('.team-board').forEach(b => b.classList.remove('current-turn'));
+            const target = document.getElementById(`board-${picker}`);
+            if (target) target.classList.add('current-turn');
+        }
+
+        // [수정됨] t.roster[pos] -> t[pos]로 변경하여 오류 해결
+        function renderBoards() {
+            const boardContainer = document.getElementById('team-boards');
+            boardContainer.innerHTML = '';
+
+            CAPTAINS.forEach(cap => {
+                const t = teams[cap];
+                const isMe = cap === myCaptain;
+                
+                let html = `<div id="board-${cap}" class="team-board ${isMe ? 'my-team' : ''}">
+                    <div class="team-header">${cap} ${isMe ? '(나)' : ''}</div>`;
+                
+                ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
+                    const mem = t[pos]; // 여기가 수정된 부분입니다 (t.roster 제거)
+                    html += `<div class="roster-row ${mem ? 'filled' : ''}">
+                        <span>${pos}</span> <span>${mem || '-'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+                boardContainer.innerHTML += html;
+            });
+        }
+
+        function renderPool(myRoster) {
+            const pool = document.getElementById('pool-list');
+            pool.innerHTML = '';
+            
+            availablePlayers.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = 'player-card';
+                
+                // myRoster[p.pos] 접근은 여기서 올바르게 사용중
+                if (myRoster && myRoster[p.pos] !== null) {
+                    div.classList.add('disabled');
+                }
+
+                const tierVal = p.tier || 'C';
+                const tierClass = `tier-${tierVal.charAt(0)}`;
+
+                div.innerHTML = `
+                    <div class="tier-badge ${tierClass}">${tierVal}</div>
+                    <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
+                    <strong style="font-size:1.1em;">${p.name}</strong>
+                `;
+                div.onclick = () => userPick(idx);
+                pool.appendChild(div);
+            });
+        }
+
+        function addLog(msg) {
+            const box = document.getElementById('log-box');
+            const p = document.createElement('div');
+            p.innerHTML = `> ${msg}`;
+            if(msg.includes('영입')) p.classList.add('log-hl');
+            box.prepend(p);
+        }
+
+        function endGame() {
+            document.getElementById('screen-draft').classList.remove('active');
+            document.getElementById('screen-result').classList.add('active');
+            document.getElementById('final-boards').innerHTML = document.getElementById('team-boards').innerHTML;
+        }
+
+        init();
+    </script>
+</body>
+</html>
