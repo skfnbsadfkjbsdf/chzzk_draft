@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025 치지직 컵 멀티 드래프트</title>
+    <title>2025 치지직 컵 멀티 드래프트 (5인 자동시작)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -30,7 +30,7 @@
         }
         .container.active { display: block; }
 
-        /* Lobby & Inputs */
+        /* Lobby */
         .lobby-box { text-align: center; padding: 20px; }
         input[type="text"] {
             padding: 10px; border-radius: 5px; border: 1px solid #555; 
@@ -48,6 +48,9 @@
             border: 2px dashed #555; padding: 15px; margin: 20px auto; display: inline-block; user-select: all;
         }
         .player-list { margin-top: 20px; background: #111; padding: 10px; border-radius: 8px; text-align: left; }
+        .waiting-msg { color: #aaa; font-size: 0.9rem; margin-top: 10px; animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
 
         /* Game Screen */
         .status-bar {
@@ -56,7 +59,6 @@
         }
         .turn-msg { font-size: 1.3rem; font-weight: bold; margin-bottom: 5px; color: white; }
         
-        /* Player Pool */
         .pool-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 30px;
         }
@@ -82,7 +84,6 @@
         .pos-BOT { background: #ffaf5f; color: black; }
         .pos-SUP { background: #af5fff; color: white; }
 
-        /* Teams Board */
         .teams-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-x: auto; }
         .team-board { background: #252525; padding: 10px; border-radius: 8px; min-width: 150px; }
         .team-board.my-team { border: 2px solid var(--chzzk-green); background: #2f3f35; }
@@ -93,7 +94,6 @@
         .roster-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 3px 0; }
         .roster-row.filled { color: var(--chzzk-green); }
         
-        /* Log */
         .log-box {
             height: 120px; overflow-y: auto; background: #111; border: 1px solid #333;
             padding: 10px; margin-top: 20px; font-size: 0.85rem; color: #aaa;
@@ -122,19 +122,19 @@
             </div>
 
             <div id="host-ui" style="display:none; margin-top:20px;">
-                <p>아래 ID를 친구에게 공유하세요:</p>
+                <p>친구에게 ID를 공유하세요 (최대 5명)</p>
                 <div id="my-room-id" class="room-id-display">생성 중...</div>
                 <div class="player-list">
-                    <strong>접속자 목록:</strong>
+                    <strong>접속자 현황 (<span id="player-count">1</span>/5):</strong>
                     <ul id="player-ul" style="padding-left: 20px; margin: 5px 0;"></ul>
                 </div>
-                <br>
-                <button id="btn-start" onclick="gameStart()" disabled>게임 시작 (2인 이상)</button>
+                <p class="waiting-msg">5명이 모두 모이면 자동으로 시작됩니다...</p>
             </div>
 
             <div id="guest-ui" style="display:none; margin-top:20px;">
-                <h3>방장에게 접속되었습니다!</h3>
-                <p>게임이 시작되기를 기다리고 있습니다...</p>
+                <h3>대기 중...</h3>
+                <p>5명이 모이면 게임이 시작됩니다.</p>
+                <p id="guest-status-msg" style="color: var(--chzzk-green);"></p>
             </div>
         </div>
     </div>
@@ -155,11 +155,8 @@
     </div>
 
     <script>
-        // ============================================================
-        // 1. 데이터 정의 (이미지 제거, 트롤야 포함, 기존 점수 유지)
-        // ============================================================
+        // 데이터
         const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
-        
         const POOL_DATA = [
             // TOP
             { name: '운타라', pos: 'TOP', score: 95, tier: 'S' },
@@ -190,32 +187,29 @@
             { name: '소풍왔니', pos: 'SUP', score: 68, tier: 'C' }
         ];
 
-        // ============================================================
-        // 2. 전역 변수 및 상태 관리
-        // ============================================================
+        // 전역 변수
         let peer = null;
-        let myConn = null; // Guest가 Host와 연결하는 통로
-        let guestConns = []; // Host가 Guest들을 관리하는 배열
+        let myConn = null; 
+        let guestConns = []; 
         let isHost = false;
         let myId = null;
-        let myRole = null; // 'Host' or 'Guest'
-
-        // 게임 상태 (Host만 수정, Guest는 수신만)
+        
+        // 게임 상태
         let gameState = {
-            players: [], // { id: string, name: string, assignedCaptain: string|null }
-            teams: {},   // { '갱맘': { TOP:..., ownerId: 'peer-id' or 'AI' } }
+            players: [], // { id, name, assignedCaptain }
+            teams: {},   
             availablePlayers: [],
-            draftOrder: [], // ['갱맘', '뱅'...]
+            draftOrder: [], 
             pickIndex: 0,
             logs: []
         };
 
-        // ============================================================
-        // 3. P2P 네트워크 로직 (PeerJS)
-        // ============================================================
+        // ==========================
+        // P2P 네트워크 (PeerJS)
+        // ==========================
         
         function initPeer(onOpen) {
-            peer = new Peer(null, { debug: 2 });
+            peer = new Peer(null, { debug: 1 });
             
             peer.on('open', (id) => {
                 myId = id;
@@ -223,7 +217,7 @@
             });
 
             peer.on('connection', (conn) => {
-                if (!isHost) return; // 호스트만 접속을 받음
+                if (!isHost) return; 
                 
                 conn.on('open', () => {
                     handleGuestJoin(conn);
@@ -235,36 +229,31 @@
             });
 
             peer.on('error', (err) => {
-                console.error(err);
-                alert("연결 오류: " + err.type);
+                alert("오류: " + err.type);
             });
         }
 
-        // [HOST] 방 만들기
         function createRoom() {
             document.getElementById('conn-status').innerText = "방 생성 중...";
             isHost = true;
-            myRole = 'Host';
 
             initPeer((id) => {
                 document.getElementById('initial-choice').style.display = 'none';
                 document.getElementById('host-ui').style.display = 'block';
                 document.getElementById('my-room-id').innerText = id;
                 
-                // 나 자신을 플레이어 목록에 추가
+                // 방장 등록
                 gameState.players.push({ id: id, name: '방장(나)', assignedCaptain: null });
                 updateLobbyUI();
             });
         }
 
-        // [GUEST] 방 참가하기
         function joinRoom() {
             const roomId = document.getElementById('room-id-input').value.trim();
             if(!roomId) return alert("방 ID를 입력하세요");
 
             document.getElementById('conn-status').innerText = "접속 시도 중...";
             isHost = false;
-            myRole = 'Guest';
 
             initPeer((id) => {
                 myConn = peer.connect(roomId);
@@ -281,75 +270,85 @@
                     } else if (data.type === 'START') {
                         document.getElementById('screen-lobby').classList.remove('active');
                         document.getElementById('screen-game').classList.add('active');
-                        renderGame(); // 초기 렌더링
+                        renderGame();
+                    } else if (data.type === 'ERROR') {
+                        alert(data.msg);
+                        location.reload(); // 차단되면 새로고침
                     }
                 });
                 
                 myConn.on('close', () => {
-                    alert("방장과의 연결이 끊어졌습니다.");
+                    alert("연결이 끊어졌습니다.");
                     location.reload();
                 });
             });
         }
 
-        // [HOST] 게스트 입장 처리
+        // [HOST] 게스트 입장 처리 (인원 제한 및 자동 시작)
         function handleGuestJoin(conn) {
+            // 1. 인원 제한 체크 (이미 5명이면 거절)
             if(gameState.players.length >= 5) {
-                // 5명 꽉 차면 거절 로직을 넣을 수 있으나 여기선 생략
+                setTimeout(() => {
+                    conn.send({ type: 'ERROR', msg: '방이 꽉 찼습니다. (최대 5명)' });
+                    setTimeout(() => conn.close(), 500);
+                }, 500);
                 return;
             }
+
+            // 2. 입장 허용
             guestConns.push(conn);
             gameState.players.push({ id: conn.peer, name: `참가자 ${gameState.players.length}`, assignedCaptain: null });
             updateLobbyUI();
+
+            // 3. 자동 시작 체크
+            if (gameState.players.length === 5) {
+                setTimeout(() => {
+                    gameStart(); // 5명 다 차면 1초 뒤 자동 시작
+                }, 1000);
+            }
         }
 
         function updateLobbyUI() {
             const ul = document.getElementById('player-ul');
+            const cnt = document.getElementById('player-count');
             ul.innerHTML = '';
             gameState.players.forEach(p => {
                 const li = document.createElement('li');
                 li.innerText = p.name;
                 ul.appendChild(li);
             });
-            
-            // 1명(혼자)이어도 테스트 가능하게 하려면 > 0, 실제 게임은 > 1 권장
-            document.getElementById('btn-start').disabled = false; 
+            cnt.innerText = gameState.players.length;
         }
 
-        // [HOST] 상태 전파
         function broadcastState() {
             const packet = { type: 'STATE_UPDATE', state: gameState };
             guestConns.forEach(c => c.send(packet));
-            renderGame(); // 호스트 화면도 갱신
+            renderGame();
         }
 
-        // ============================================================
-        // 4. 게임 로직 (Host가 전담)
-        // ============================================================
+        // ==========================
+        // 게임 로직 (Host Only)
+        // ==========================
 
         function gameStart() {
             if (!isHost) return;
 
-            // 1. 데이터 초기화
+            // 초기화
             gameState.availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
             gameState.draftOrder = [...CAPTAINS].sort(() => Math.random() - 0.5);
             gameState.pickIndex = 0;
             gameState.teams = {};
 
-            // 2. 팀장(Captain) 배정
-            // 섞은 캡틴 목록을 플레이어 수만큼 할당
             const shuffledCaps = [...CAPTAINS].sort(() => Math.random() - 0.5);
             
-            // 모든 캡틴에 대해 팀 구조 생성
             CAPTAINS.forEach(cap => {
                 gameState.teams[cap] = { 
                     TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null, 
-                    ownerId: 'AI', // 기본 AI
-                    ownerName: 'AI'
+                    ownerId: 'AI', ownerName: 'AI'
                 };
             });
 
-            // 접속한 플레이어들에게 캡틴 할당
+            // 플레이어에게 팀장 배정
             gameState.players.forEach((p, idx) => {
                 if (idx < 5) {
                     const assignedCap = shuffledCaps[idx];
@@ -361,9 +360,8 @@
 
             addGameLog(`게임 시작! 드래프트 순서: ${gameState.draftOrder.join(' → ')}`);
 
-            // 3. 게스트들에게 시작 신호
+            // 모두에게 시작 신호
             guestConns.forEach(c => c.send({ type: 'START' }));
-            
             document.getElementById('screen-lobby').classList.remove('active');
             document.getElementById('screen-game').classList.add('active');
             
@@ -373,24 +371,17 @@
 
         function handlePickRequest(peerId, playerIdx) {
             if(!isHost) return;
-            
             const currentCap = getCurrentPicker();
             const teamInfo = gameState.teams[currentCap];
-
-            // 턴 검증
-            if (teamInfo.ownerId !== peerId) return; // 네 턴 아님
-
+            if (teamInfo.ownerId !== peerId) return; // 턴 아님
             processPick(currentCap, playerIdx);
         }
 
         function processPick(capName, playerIdx) {
             const player = gameState.availablePlayers[playerIdx];
             if (!player) return;
-
-            // 유효성 검사 (이미 해당 포지션 있는지)
             if (gameState.teams[capName][player.pos] !== null) return;
 
-            // 픽 처리
             gameState.teams[capName][player.pos] = player.name;
             gameState.availablePlayers.splice(playerIdx, 1);
             
@@ -402,31 +393,22 @@
         }
 
         function checkAiTurn() {
-            if (gameState.pickIndex >= 20) return; // 종료
-
+            if (gameState.pickIndex >= 20) return;
             const currentCap = getCurrentPicker();
             const teamInfo = gameState.teams[currentCap];
 
             if (teamInfo.ownerId === 'AI') {
-                // AI 자동 픽 (약간의 딜레이 후)
-                setTimeout(() => {
-                    aiPick(currentCap);
-                }, 1000);
+                setTimeout(() => aiPick(currentCap), 1000);
             }
         }
 
         function aiPick(capName) {
             const roster = gameState.teams[capName];
             const neededPos = ['TOP', 'MID', 'BOT', 'SUP'].filter(p => roster[p] === null);
-            
-            // 필요한 포지션 중 점수 제일 높은 선수 찾기
-            // availablePlayers는 이미 점수순 정렬되어 있음
             const candidates = gameState.availablePlayers.filter(p => neededPos.includes(p.pos));
             
             if (candidates.length > 0) {
-                // candidates[0]이 가장 높은 점수
                 const pickName = candidates[0].name;
-                // 원래 배열에서의 인덱스 찾기
                 const realIdx = gameState.availablePlayers.findIndex(p => p.name === pickName && p.pos === candidates[0].pos);
                 processPick(capName, realIdx);
             }
@@ -436,7 +418,6 @@
             const idx = gameState.pickIndex;
             const round = Math.floor(idx / 5);
             const idxInRound = idx % 5;
-            // 스네이크 방식
             const actualIdx = (round % 2 === 0) ? idxInRound : (4 - idxInRound);
             return gameState.draftOrder[actualIdx];
         }
@@ -445,15 +426,14 @@
             gameState.logs.push(msg);
         }
 
-        // ============================================================
-        // 5. 렌더링 (Host/Guest 공통)
-        // ============================================================
+        // ==========================
+        // 렌더링
+        // ==========================
 
         function renderGame() {
-            // 로그 렌더링
+            // 로그
             const logBox = document.getElementById('log-box');
             logBox.innerHTML = '';
-            // 최신 로그가 위로 오게
             [...gameState.logs].reverse().forEach(msg => {
                 const div = document.createElement('div');
                 div.innerHTML = `> ${msg}`;
@@ -461,20 +441,18 @@
                 logBox.appendChild(div);
             });
 
-            // 종료 체크
             if (gameState.pickIndex >= 20) {
                 document.getElementById('turn-msg').innerText = "드래프트 종료!";
                 document.getElementById('draft-info').innerText = "모든 로스터가 확정되었습니다.";
                 renderBoards();
-                renderPool(); // 빈 화면 혹은 남은 선수
+                renderPool();
                 return;
             }
 
             const currentCap = getCurrentPicker();
             const teamInfo = gameState.teams[currentCap];
-            const isMyTurn = (teamInfo.ownerId === myId); // 내가 현재 픽할 차례인지
+            const isMyTurn = (teamInfo.ownerId === myId);
 
-            // 상태바 업데이트
             const turnMsg = document.getElementById('turn-msg');
             if (isMyTurn) {
                 turnMsg.innerText = "당신의 차례입니다! 선수를 선택하세요.";
@@ -496,37 +474,25 @@
             gameState.availablePlayers.forEach((p, idx) => {
                 const div = document.createElement('div');
                 div.className = 'player-card';
-
-                // 내 차례인데 이미 해당 포지션을 가지고 있다면 비활성화
                 let disabled = false;
                 if (isMyTurn) {
                     if (gameState.teams[currentCap][p.pos] !== null) disabled = true;
                 } else {
-                    // 내 차례 아니면 클릭 불가
                     disabled = true; 
                 }
-                
                 if(disabled) div.classList.add('disabled');
 
                 const tierVal = p.tier || 'C';
-                const tierClass = `tier-${tierVal.charAt(0)}`;
-
                 div.innerHTML = `
-                    <div class="tier-badge ${tierClass}">${tierVal}</div>
+                    <div class="tier-badge tier-${tierVal.charAt(0)}">${tierVal}</div>
                     <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
                     <strong style="font-size:1.1em;">${p.name}</strong>
                 `;
-                
                 div.onclick = () => {
                     if (!isMyTurn || disabled) return;
-                    // 픽 요청 보내기
-                    if (isHost) {
-                        processPick(currentCap, idx);
-                    } else {
-                        myConn.send({ type: 'PICK', idx: idx });
-                    }
+                    if (isHost) processPick(currentCap, idx);
+                    else myConn.send({ type: 'PICK', idx: idx });
                 };
-                
                 pool.appendChild(div);
             });
         }
@@ -547,7 +513,7 @@
                     </div>`;
                 
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
-                    const mem = t[pos]; // 이름 문자열
+                    const mem = t[pos];
                     html += `<div class="roster-row ${mem ? 'filled' : ''}">
                         <span>${pos}</span> <span>${mem || '-'}</span>
                     </div>`;
