@@ -21,6 +21,20 @@
         h1, h2 { text-align: center; margin: 10px 0; }
         .accent { color: var(--chzzk-green); font-weight: bold; }
 
+        /* 싱글버전 링크 스타일 */
+        .single-link {
+            color: #aaa;
+            text-decoration: none;
+            border-bottom: 1px solid #555;
+            padding-bottom: 2px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .single-link:hover {
+            color: var(--chzzk-green);
+            border-color: var(--chzzk-green);
+        }
+        
         /* Layout */
         .container {
             width: 100%; max-width: 1100px; background: var(--card-bg);
@@ -94,6 +108,12 @@
 
     <h1>2025 <span class="accent">CHZZK CUP</span> 드래프트</h1>
 
+    <p style="margin-bottom: 30px;">
+        <a href="https://skfnbsadfkjbsdf.github.io/chzzk_draft/d5_multi.html" class="single-link">
+            🎲 멀티 버전 이동
+        </a>
+    </p>
+    
     <div id="screen-setup" class="container active">
         <h2>팀장(JUNGLE)을 선택하세요</h2>
         <p style="text-align: center; color: #aaa;">※ AI가 실력(Tier) 순으로 선수를 영입합니다!</p>
