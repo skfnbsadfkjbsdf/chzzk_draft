@@ -112,16 +112,23 @@
 
     <script>
         const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
-        const POOL_DATA = [
-            { name: '운타라', pos: 'TOP', score: 95, tier: 'S' }, { name: '김뿡', pos: 'TOP', score: 88, tier: 'A' },
-            { name: '룩삼', pos: 'TOP', score: 78, tier: 'B' }, { name: '얍얍', pos: 'TOP', score: 74, tier: 'B' }, { name: '한동숙', pos: 'TOP', score: 65, tier: 'C' },
-            { name: '앰비션', pos: 'MID', score: 99, tier: 'S' }, { name: '인섹', pos: 'MID', score: 94, tier: 'S' },
-            { name: '피닉스박', pos: 'MID', score: 85, tier: 'A' }, { name: '랄로', pos: 'MID', score: 77, tier: 'B' }, { name: '트롤야', pos: 'MID', score: 60, tier: 'C' },
-            { name: '괴물쥐', pos: 'BOT', score: 89, tier: 'A' }, { name: '명예훈장', pos: 'BOT', score: 79, tier: 'B' },
-            { name: '삼식', pos: 'BOT', score: 79, tier: 'B' }, { name: '러너', pos: 'BOT', score: 79, tier: 'B' }, { name: '따효니', pos: 'BOT', score: 79, tier: 'B' },
-            { name: '순당무', pos: 'SUP', score: 92, tier: 'S' }, { name: '인간젤리', pos: 'SUP', score: 87, tier: 'A' },
-            { name: '던', pos: 'SUP', score: 75, tier: 'B' }, { name: '푸린', pos: 'SUP', score: 72, tier: 'B' }, { name: '소풍왔니', pos: 'SUP', score: 68, tier: 'C' }
-        ];
+        let POOL_DATA = []; // const가 아닌 let으로 변경 (데이터를 채워넣어야 하므로)
+
+        // [추가됨] 외부 JSON 파일 불러오기 함수
+        async function loadData() {
+            try {
+                const response = await fetch('data/pool_data.json');
+                if (!response.ok) throw new Error('데이터 로딩 실패');
+                POOL_DATA = await response.json();
+                console.log("선수 데이터 로드 완료:", POOL_DATA.length + "명");
+            } catch (error) {
+                console.error("데이터 로드 중 오류 발생:", error);
+                alert("선수 데이터를 불러오는데 실패했습니다. (로컬 실행 시 서버 필요)");
+            }
+        }
+
+        // 페이지 로드 시 데이터 불러오기 실행
+        loadData();
 
         let peer = null;
         let myConn = null; 
