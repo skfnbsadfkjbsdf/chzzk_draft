@@ -3,142 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025 치지직 컵 멀티 드래프트 (이모지 쿨타임 단축)</title>
+    <title>2025 치지직 컵 멀티 드래프트 (즉시 퇴장 감지)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --chzzk-green: #00ffa3;
-            --bg-dark: #121212;
-            --card-bg: #1e1e1e;
-            --text-main: #ffffff;
-        }
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
-        }
+        :root { --chzzk-green: #00ffa3; --bg-dark: #121212; --card-bg: #1e1e1e; --text-main: #ffffff; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1, h2, h3 { text-align: center; margin: 10px 0; }
         .accent { color: var(--chzzk-green); font-weight: bold; }
-
-        /* 싱글버전 링크 */
-        .single-link {
-            color: #aaa; text-decoration: none; border-bottom: 1px solid #555;
-            padding-bottom: 2px; font-size: 0.9rem; transition: 0.2s;
-        }
+        .single-link { color: #aaa; text-decoration: none; border-bottom: 1px solid #555; padding-bottom: 2px; font-size: 0.9rem; transition: 0.2s; }
         .single-link:hover { color: var(--chzzk-green); border-color: var(--chzzk-green); }
-        
-        /* Layout */
-        .container {
-            width: 100%; max-width: 1100px; background: var(--card-bg);
-            padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            margin-bottom: 20px; display: none;
-        }
+        .container { width: 100%; max-width: 1100px; background: var(--card-bg); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px; display: none; }
         .container.active { display: block; }
-
-        /* Common Buttons */
-        button {
-            background: #333; color: white; border: 2px solid var(--chzzk-green);
-            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
+        button { background: #333; color: white; border: 2px solid var(--chzzk-green); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { background: var(--chzzk-green); color: black; }
         button:disabled { border-color: #555; color: #777; cursor: not-allowed; background: #222; }
-
-        /* Lobby */
         .lobby-box { text-align: center; padding: 20px; }
-        input[type="text"] {
-            padding: 10px; border-radius: 5px; border: 1px solid #555; 
-            background: #222; color: white; width: 200px; text-align: center; margin-right: 10px;
-        }
-        .btn-copy {
-            background: #444; border-color: #777; font-size: 0.9rem; padding: 8px 15px; margin-top: 10px;
-        }
+        input[type="text"] { padding: 10px; border-radius: 5px; border: 1px solid #555; background: #222; color: white; width: 200px; text-align: center; margin-right: 10px; }
+        .btn-copy { background: #444; border-color: #777; font-size: 0.9rem; padding: 8px 15px; margin-top: 10px; }
         .btn-copy:hover { background: #555; color: white; border-color: var(--chzzk-green); }
-
-        .room-id-display {
-            font-size: 1.5rem; color: var(--chzzk-green); font-weight: bold;
-            border: 2px dashed #555; padding: 15px; margin: 20px auto; display: inline-block; user-select: all;
-        }
+        .room-id-display { font-size: 1.5rem; color: var(--chzzk-green); font-weight: bold; border: 2px dashed #555; padding: 15px; margin: 20px auto; display: inline-block; user-select: all; }
         .player-list { margin-top: 20px; background: #111; padding: 10px; border-radius: 8px; text-align: left; }
         .waiting-msg { color: #aaa; font-size: 0.9rem; margin-top: 10px; animation: pulse 1.5s infinite; }
-        
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-
-        /* Game Screen */
-        .status-bar {
-            text-align: center; padding: 15px; background: #2a2a2a;
-            border-radius: 8px; margin-bottom: 20px; border: 1px solid #444;
-        }
+        .status-bar { text-align: center; padding: 15px; background: #2a2a2a; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
         .turn-msg { font-size: 1.3rem; font-weight: bold; margin-bottom: 5px; color: white; }
-        
-        /* 이모지 컨트롤 영역 */
         .emote-controls { margin-top: 10px; display: flex; justify-content: center; gap: 15px; }
-        .emote-btn {
-            font-size: 1.5rem; padding: 5px 15px; background: #333; border: 1px solid #555; border-radius: 20px; cursor: pointer; transition: 0.2s;
-        }
+        .emote-btn { font-size: 1.5rem; padding: 5px 15px; background: #333; border: 1px solid #555; border-radius: 20px; cursor: pointer; transition: 0.2s; }
         .emote-btn:hover:not(:disabled) { transform: scale(1.1); background: #444; border-color: var(--chzzk-green); }
         .emote-btn:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(100%); }
-
-        /* 이모지 애니메이션 */
-        .floating-emote {
-            position: absolute; right: 10px; top: -15px; font-size: 2rem;
-            animation: floatAndFade 3s forwards; z-index: 100; pointer-events: none;
-        }
-        @keyframes floatAndFade {
-            0% { opacity: 0; transform: translateY(10px) scale(0.5); }
-            10% { opacity: 1; transform: translateY(0) scale(1.2); }
-            20% { transform: translateY(0) scale(1); }
-            80% { opacity: 1; transform: translateY(-10px); }
-            100% { opacity: 0; transform: translateY(-30px); }
-        }
-
-        /* Player Pool */
-        .pool-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 30px;
-        }
-        .player-card {
-            background: #333; padding: 10px; border-radius: 6px; text-align: center;
-            cursor: pointer; border: 1px solid #444; position: relative; overflow: hidden;
-        }
+        .floating-emote { position: absolute; right: 10px; top: -15px; font-size: 2rem; animation: floatAndFade 3s forwards; z-index: 100; pointer-events: none; }
+        @keyframes floatAndFade { 0% { opacity: 0; transform: translateY(10px) scale(0.5); } 10% { opacity: 1; transform: translateY(0) scale(1.2); } 20% { transform: translateY(0) scale(1); } 80% { opacity: 1; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(-30px); } }
+        .pool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 30px; }
+        .player-card { background: #333; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; border: 1px solid #444; position: relative; overflow: hidden; }
         .player-card:hover { border-color: var(--chzzk-green); background: #444; transform: translateY(-2px); }
         .player-card.disabled { opacity: 0.2; pointer-events: none; filter: grayscale(100%); }
-        
-        .tier-badge {
-            position: absolute; top: 0; right: 0; font-size: 0.7rem; padding: 2px 5px;
-            background: #555; color: white; border-bottom-left-radius: 5px;
-        }
-        .tier-S { background: #ff4757; color: white; }
-        .tier-A { background: #ffa502; color: black; }
-        .tier-B { background: #2ed573; color: black; }
-        .tier-C { background: #a4b0be; color: black; }
-
+        .tier-badge { position: absolute; top: 0; right: 0; font-size: 0.7rem; padding: 2px 5px; background: #555; color: white; border-bottom-left-radius: 5px; }
+        .tier-S { background: #ff4757; } .tier-A { background: #ffa502; color: black; } .tier-B { background: #2ed573; color: black; } .tier-C { background: #a4b0be; color: black; }
         .pos-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-bottom: 4px;}
-        .pos-TOP { background: #ff5f5f; color: white; }
-        .pos-MID { background: #5fafff; color: white; }
-        .pos-BOT { background: #ffaf5f; color: black; }
-        .pos-SUP { background: #af5fff; color: white; }
-
-        /* Teams Board */
+        .pos-TOP { background: #ff5f5f; color: white; } .pos-MID { background: #5fafff; color: white; } .pos-BOT { background: #ffaf5f; color: black; } .pos-SUP { background: #af5fff; color: white; }
         .teams-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-x: auto; }
         .team-board { background: #252525; padding: 10px; border-radius: 8px; min-width: 150px; position: relative; }
         .team-board.my-team { border: 2px solid var(--chzzk-green); background: #2f3f35; }
         .team-board.current-turn { box-shadow: 0 0 15px var(--chzzk-green); border-color: var(--chzzk-green); transform: scale(1.02); transition: 0.3s;}
-        
-        .team-header { 
-            font-weight: bold; text-align: center; border-bottom: 1px solid #444; 
-            padding-bottom: 5px; margin-bottom: 5px; position: relative; 
-        }
+        .team-header { font-weight: bold; text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; position: relative; }
         .owner-badge { font-size: 0.7rem; color: #aaa; display: block; font-weight: normal;}
         .roster-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 3px 0; }
         .roster-row.filled { color: var(--chzzk-green); }
-        
-        .log-box {
-            height: 120px; overflow-y: auto; background: #111; border: 1px solid #333;
-            padding: 10px; margin-top: 20px; font-size: 0.85rem; color: #aaa;
-        }
+        .log-box { height: 120px; overflow-y: auto; background: #111; border: 1px solid #333; padding: 10px; margin-top: 20px; font-size: 0.85rem; color: #aaa; }
         .log-hl { color: var(--chzzk-green); font-weight: bold; }
-
+        .log-error { color: #ff5555; font-weight: bold; }
         @media (max-width: 768px) { .teams-container { grid-template-columns: 1fr 1fr; } }
     </style>
 </head>
@@ -154,7 +67,6 @@
                     🎲 혼자하기 (싱글 버전) 이동
                 </a>
             </p>
-            
             <div id="initial-choice">
                 <button onclick="createRoom()">방 만들기 (Host)</button>
                 <br><br>
@@ -164,7 +76,6 @@
                 </div>
                 <p id="conn-status" style="color:#aaa; margin-top:10px;"></p>
             </div>
-
             <div id="connected-ui" style="display:none;">
                 <div id="host-info" style="display:none;">
                     <p>아래 ID를 친구에게 공유하세요 (최대 5명)</p>
@@ -185,7 +96,6 @@
         <div class="status-bar">
             <div id="turn-msg" class="turn-msg">게임 준비 중...</div>
             <div id="draft-info" style="font-size: 0.9rem; color: #ccc;"></div>
-            
             <div class="emote-controls">
                 <button class="emote-btn" onclick="sendEmote('😂')" title="즐거움">😂</button>
                 <button class="emote-btn" onclick="sendEmote('😲')" title="놀람">😲</button>
@@ -193,59 +103,46 @@
             </div>
             <div style="font-size:0.8rem; color:#555; margin-top:5px;">* 4초에 1번 사용 가능</div>
         </div>
-
         <h3>영입 가능 선수 (실력순)</h3>
         <div class="pool-grid" id="pool-list"></div>
-
         <h3>실시간 팀 상황</h3>
         <div class="teams-container" id="team-boards"></div>
-
         <div class="log-box" id="log-box"></div>
     </div>
 
     <script>
-        // 데이터
         const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
         const POOL_DATA = [
-            // TOP
             { name: '운타라', pos: 'TOP', score: 95, tier: 'S' }, { name: '김뿡', pos: 'TOP', score: 88, tier: 'A' },
             { name: '룩삼', pos: 'TOP', score: 78, tier: 'B' }, { name: '얍얍', pos: 'TOP', score: 74, tier: 'B' }, { name: '한동숙', pos: 'TOP', score: 65, tier: 'C' },
-            // MID
             { name: '앰비션', pos: 'MID', score: 99, tier: 'S' }, { name: '인섹', pos: 'MID', score: 94, tier: 'S' },
             { name: '피닉스박', pos: 'MID', score: 85, tier: 'A' }, { name: '랄로', pos: 'MID', score: 77, tier: 'B' }, { name: '트롤야', pos: 'MID', score: 60, tier: 'C' },
-            // BOT
             { name: '괴물쥐', pos: 'BOT', score: 89, tier: 'A' }, { name: '명예훈장', pos: 'BOT', score: 79, tier: 'B' },
             { name: '삼식', pos: 'BOT', score: 79, tier: 'B' }, { name: '러너', pos: 'BOT', score: 79, tier: 'B' }, { name: '따효니', pos: 'BOT', score: 79, tier: 'B' },
-            // SUP
             { name: '순당무', pos: 'SUP', score: 92, tier: 'S' }, { name: '인간젤리', pos: 'SUP', score: 87, tier: 'A' },
             { name: '던', pos: 'SUP', score: 75, tier: 'B' }, { name: '푸린', pos: 'SUP', score: 72, tier: 'B' }, { name: '소풍왔니', pos: 'SUP', score: 68, tier: 'C' }
         ];
 
-        // 전역 변수
         let peer = null;
         let myConn = null; 
         let guestConns = []; 
         let isHost = false;
         let myId = null;
         let myName = '';
-        
-        // 게임 상태
-        let gameState = {
-            isStarted: false,
-            players: [], 
-            teams: {},   
-            availablePlayers: [],
-            draftOrder: [], 
-            pickIndex: 0,
-            logs: []
-        };
-
-        // 이모지 쿨타임
+        let heartbeatInterval = null; 
+        let gameState = { isStarted: false, players: [], teams: {}, availablePlayers: [], draftOrder: [], pickIndex: 0, logs: [] };
         let emoteCooldown = false;
 
-        // ==========================
-        // 유틸리티: 초대 링크 복사
-        // ==========================
+        // [추가] 탭 닫기 감지 (임종 직전 신호 보내기)
+        window.addEventListener('beforeunload', () => {
+            if (isHost) {
+                // 호스트가 나가면 모든 게스트에게 알림 (선택사항)
+            } else if (myConn && myConn.open) {
+                // 게스트가 나가면 호스트에게 LEAVE 패킷 전송
+                myConn.send({ type: 'LEAVE', peerId: myId });
+            }
+        });
+
         function copyInviteLink() {
             if (!myId) return alert("아직 방이 생성되지 않았습니다.");
             const url = window.location.href;
@@ -258,38 +155,35 @@
             });
         }
 
-        // ==========================
-        // P2P 네트워크 (PeerJS)
-        // ==========================
         function initPeer(onOpen) {
             peer = new Peer(null, { debug: 1 });
-            
             peer.on('open', (id) => {
                 myId = id;
                 if(onOpen) onOpen(id);
             });
-
             peer.on('connection', (conn) => {
                 if (!isHost) return; 
-                
                 conn.on('open', () => { handleGuestJoin(conn); });
-                
                 conn.on('data', (data) => {
-                    if(data.type === 'PICK') handlePickRequest(conn.peer, data.idx);
-                    
-                    if(data.type === 'EMOTE') {
+                    // [중요] LEAVE 신호를 받으면 즉시 처리
+                    if (data.type === 'LEAVE') {
+                        handleGuestLeave(conn.peer);
+                        return;
+                    }
+                    // 하트비트, 이모지, 픽 등 어떤 데이터든 오면 생존으로 간주
+                    handlePong(conn.peer);
+
+                    if (data.type === 'PING') { /* Host doesn't need to reply PONG usually */ }
+                    if (data.type === 'PICK') handlePickRequest(conn.peer, data.idx);
+                    if (data.type === 'EMOTE') {
                         triggerEmoteDisplay(data.captain, data.emoji);
                         broadcastData({ type: 'EMOTE', captain: data.captain, emoji: data.emoji });
                     }
                 });
-
                 conn.on('close', () => { handleGuestLeave(conn.peer); });
                 conn.on('error', () => { handleGuestLeave(conn.peer); });
             });
-
-            peer.on('error', (err) => {
-                console.error("PeerJS Error:", err);
-            });
+            peer.on('error', (err) => { console.error("PeerJS Error:", err); });
         }
 
         function createRoom() {
@@ -301,8 +195,9 @@
                 document.getElementById('connected-ui').style.display = 'block';
                 document.getElementById('host-info').style.display = 'block';
                 document.getElementById('my-room-id').innerText = id;
-                gameState.players.push({ id: id, name: myName, assignedCaptain: null });
+                gameState.players.push({ id: id, name: myName, assignedCaptain: null, lastHeartbeat: Date.now() });
                 updateLobbyUI();
+                startHeartbeatLoop();
             });
         }
 
@@ -311,16 +206,14 @@
             if(!roomId) return alert("방 ID를 입력하세요");
             document.getElementById('conn-status').innerText = "접속 시도 중...";
             isHost = false;
-
             initPeer((id) => {
                 myConn = peer.connect(roomId);
-                
                 myConn.on('open', () => {
                     document.getElementById('initial-choice').style.display = 'none';
                     document.getElementById('connected-ui').style.display = 'block';
                 });
-
                 myConn.on('data', (data) => {
+                    if (data.type === 'PING') { myConn.send({ type: 'PONG' }); return; }
                     if (data.type === 'STATE_UPDATE') {
                         gameState = data.state;
                         if (gameState.isStarted) {
@@ -329,9 +222,7 @@
                                 document.getElementById('screen-game').classList.add('active');
                              }
                              renderGame();
-                        } else {
-                            updateLobbyUI();
-                        }
+                        } else { updateLobbyUI(); }
                     } else if (data.type === 'START') {
                         document.getElementById('screen-lobby').classList.remove('active');
                         document.getElementById('screen-game').classList.add('active');
@@ -339,16 +230,33 @@
                     } else if (data.type === 'EMOTE') {
                         triggerEmoteDisplay(data.captain, data.emoji);
                     } else if (data.type === 'ERROR') {
-                        alert(data.msg);
-                        location.reload();
+                        alert(data.msg); location.reload();
                     }
                 });
-                
-                myConn.on('close', () => {
-                    alert("방장과의 연결이 끊어졌습니다.");
-                    location.reload();
-                });
+                myConn.on('close', () => { alert("방장과의 연결이 끊어졌습니다."); location.reload(); });
             });
+        }
+
+        function startHeartbeatLoop() {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(() => {
+                const now = Date.now();
+                guestConns.forEach(c => { if(c.open) c.send({ type: 'PING' }); });
+                for (let i = gameState.players.length - 1; i >= 0; i--) {
+                    const p = gameState.players[i];
+                    if (p.id === myId) { p.lastHeartbeat = now; continue; }
+                    // 20초 타임아웃 (백그라운드 고려)
+                    if (now - p.lastHeartbeat > 20000) {
+                        console.log(`Timeout: ${p.name} disconnected`);
+                        handleGuestLeave(p.id); 
+                    }
+                }
+            }, 3000); 
+        }
+
+        function handlePong(peerId) {
+            const player = gameState.players.find(p => p.id === peerId);
+            if (player) player.lastHeartbeat = Date.now();
         }
 
         function handleGuestJoin(conn) {
@@ -360,7 +268,7 @@
                 return;
             }
             guestConns.push(conn);
-            gameState.players.push({ id: conn.peer, name: `참가자 ${gameState.players.length}`, assignedCaptain: null });
+            gameState.players.push({ id: conn.peer, name: `참가자 ${gameState.players.length}`, assignedCaptain: null, lastHeartbeat: Date.now() });
             broadcastState();
             checkAutoStart();
         }
@@ -368,9 +276,18 @@
         function handleGuestLeave(peerId) {
             const idx = gameState.players.findIndex(p => p.id === peerId);
             if(idx > -1) {
+                const leaver = gameState.players[idx];
+                if(gameState.isStarted && leaver.assignedCaptain) {
+                    const cap = leaver.assignedCaptain;
+                    gameState.teams[cap].ownerId = 'AI';
+                    gameState.teams[cap].ownerName = 'AI (대타)';
+                    addGameLog(`🚫 ${leaver.name}님이 연결이 끊겨서 AI로 대체하여 진행합니다.`);
+                }
                 gameState.players.splice(idx, 1);
                 guestConns = guestConns.filter(c => c.peer !== peerId);
                 broadcastState();
+                if(gameState.isStarted) checkAiTurn();
+                else updateLobbyUI();
             }
         }
 
@@ -407,7 +324,6 @@
                 ul.appendChild(li);
             });
             cnt.innerText = gameState.players.length;
-
             const msgEl = document.getElementById('lobby-status-msg');
             if (gameState.players.length < 5) {
                 msgEl.innerText = `플레이어를 기다리는 중... (${gameState.players.length}/5명)`;
@@ -417,35 +333,23 @@
             }
         }
 
-        // ==========================
-        // 이모지 기능 로직
-        // ==========================
-        
         function sendEmote(emoji) {
             if (emoteCooldown) return;
-            
             const myPlayer = gameState.players.find(p => p.id === myId);
             const myCap = myPlayer ? myPlayer.assignedCaptain : null;
-            
             if (!myCap) return alert("아직 팀이 배정되지 않았거나 관전자입니다.");
-
             startEmoteCooldown();
-
             const packet = { type: 'EMOTE', captain: myCap, emoji: emoji };
             if (isHost) {
                 triggerEmoteDisplay(myCap, emoji);
                 broadcastData(packet);
-            } else {
-                myConn.send(packet);
-            }
+            } else { myConn.send(packet); }
         }
 
         function startEmoteCooldown() {
             emoteCooldown = true;
             const btns = document.querySelectorAll('.emote-btn');
             btns.forEach(b => b.disabled = true);
-
-            // [수정] 쿨타임 4초로 단축
             setTimeout(() => {
                 emoteCooldown = false;
                 btns.forEach(b => b.disabled = false);
@@ -455,7 +359,6 @@
         function triggerEmoteDisplay(captainName, emoji) {
             const headerId = `header-${captainName}`;
             const headerEl = document.getElementById(headerId);
-            
             if (headerEl) {
                 const span = document.createElement('span');
                 span.className = 'floating-emote';
@@ -465,10 +368,6 @@
             }
         }
 
-        // ==========================
-        // 게임 로직 (Host Only)
-        // ==========================
-
         function gameStart() {
             if (!isHost) return;
             gameState.availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
@@ -476,12 +375,8 @@
             gameState.pickIndex = 0;
             gameState.teams = {};
             const shuffledCaps = [...CAPTAINS].sort(() => Math.random() - 0.5);
-
             CAPTAINS.forEach(cap => {
-                gameState.teams[cap] = { 
-                    TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null, 
-                    ownerId: 'AI', ownerName: 'AI'
-                };
+                gameState.teams[cap] = { TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null, ownerId: 'AI', ownerName: 'AI' };
             });
             gameState.players.forEach((p, idx) => {
                 if (idx < 5) {
@@ -512,7 +407,6 @@
             const player = gameState.availablePlayers[playerIdx];
             if (!player) return;
             if (gameState.teams[capName][player.pos] !== null) return;
-
             gameState.teams[capName][player.pos] = player.name;
             gameState.availablePlayers.splice(playerIdx, 1);
             addGameLog(`[${capName}] ${player.name} (${player.pos}) 영입!`);
@@ -525,9 +419,7 @@
             if (gameState.pickIndex >= 20) return;
             const currentCap = getCurrentPicker();
             const teamInfo = gameState.teams[currentCap];
-            if (teamInfo.ownerId === 'AI') {
-                setTimeout(() => aiPick(currentCap), 1000);
-            }
+            if (teamInfo.ownerId === 'AI') { setTimeout(() => aiPick(currentCap), 1000); }
         }
 
         function aiPick(capName) {
@@ -553,10 +445,6 @@
             gameState.logs.push(msg);
         }
 
-        // ==========================
-        // 렌더링
-        // ==========================
-
         function renderGame() {
             const logBox = document.getElementById('log-box');
             logBox.innerHTML = '';
@@ -564,21 +452,17 @@
                 const div = document.createElement('div');
                 div.innerHTML = `> ${msg}`;
                 if(msg.includes('영입')) div.classList.add('log-hl');
+                if(msg.includes('연결이 끊겨서')) div.classList.add('log-error');
                 logBox.appendChild(div);
             });
-
             if (gameState.pickIndex >= 20) {
                 document.getElementById('turn-msg').innerText = "드래프트 종료!";
                 document.getElementById('draft-info').innerText = "모든 로스터가 확정되었습니다.";
-                renderBoards();
-                renderPool();
-                return;
+                renderBoards(); renderPool(); return;
             }
-
             const currentCap = getCurrentPicker();
             const teamInfo = gameState.teams[currentCap];
             const isMyTurn = (teamInfo.ownerId === myId);
-
             const turnMsg = document.getElementById('turn-msg');
             if (isMyTurn) {
                 turnMsg.innerText = "당신의 차례입니다! 선수를 선택하세요.";
@@ -588,7 +472,6 @@
                 turnMsg.style.color = "white";
             }
             document.getElementById('draft-info').innerText = `라운드 ${Math.floor(gameState.pickIndex/5) + 1} / 4 (전체 ${gameState.pickIndex + 1}픽)`;
-
             renderPool(isMyTurn, currentCap);
             renderBoards(currentCap);
         }
@@ -604,7 +487,6 @@
                     if (gameState.teams[currentCap][p.pos] !== null) disabled = true;
                 } else { disabled = true; }
                 if(disabled) div.classList.add('disabled');
-
                 const tierVal = p.tier || 'C';
                 div.innerHTML = `
                     <div class="tier-badge tier-${tierVal.charAt(0)}">${tierVal}</div>
@@ -622,23 +504,16 @@
 
         function renderBoards(currentCap) {
             const boardContainer = document.getElementById('team-boards');
-            
-            // 이모지 요소 보존을 위해 innerHTML 갱신 방식이 아닌 DOM 조작이 이상적이나, 
-            // 구조상 단순화를 위해 기존 컨텐츠 초기화 후 재생성 방식을 사용합니다.
-            // 이모지가 떠 있는 상태에서 턴이 바뀌면(render 호출 시) 이모지가 사라지는 한계가 있습니다.
             boardContainer.innerHTML = '';
-
             CAPTAINS.forEach(cap => {
                 const t = gameState.teams[cap];
                 const isMine = (t.ownerId === myId);
                 const isTurn = (cap === currentCap && gameState.pickIndex < 20);
-                
                 let html = `<div class="team-board ${isMine ? 'my-team' : ''} ${isTurn ? 'current-turn' : ''}">
                     <div class="team-header" id="header-${cap}">
                         ${cap} 
                         <span class="owner-badge">${t.ownerName === '방장(나)' && !isHost ? '방장' : t.ownerName}</span>
                     </div>`;
-                
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
                     const mem = t[pos];
                     html += `<div class="roster-row ${mem ? 'filled' : ''}">
