@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025 치지직 컵 드래프트 (수정버전)</title>
+    <title>2025 치지직 컵 드래프트 (최종수정)</title>
     <style>
         :root {
             --chzzk-green: #00ffa3;
@@ -21,6 +21,20 @@
         h1, h2 { text-align: center; margin: 10px 0; }
         .accent { color: var(--chzzk-green); font-weight: bold; }
 
+        /* 싱글버전 링크 스타일 */
+        .single-link {
+            color: #aaa;
+            text-decoration: none;
+            border-bottom: 1px solid #555;
+            padding-bottom: 2px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .single-link:hover {
+            color: var(--chzzk-green);
+            border-color: var(--chzzk-green);
+        }
+        
         /* Layout */
         .container {
             width: 100%; max-width: 1100px; background: var(--card-bg);
@@ -94,6 +108,12 @@
 
     <h1>2025 <span class="accent">CHZZK CUP</span> 드래프트</h1>
 
+    <p style="margin-bottom: 30px;">
+        <a href="https://skfnbsadfkjbsdf.github.io/chzzk_draft/d5_multi.html" class="single-link">
+            🎲 멀티 버전 이동
+        </a>
+    </p>
+    
     <div id="screen-setup" class="container active">
         <h2>팀장(JUNGLE)을 선택하세요</h2>
         <p style="text-align: center; color: #aaa;">※ AI가 실력(Tier) 순으로 선수를 영입합니다!</p>
@@ -123,37 +143,23 @@
 
     <script>
         const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
+        let POOL_DATA = []; // const가 아닌 let으로 변경 (데이터를 채워넣어야 하므로)
 
-        // 데이터 정의 (오타 수정 및 Tier 속성 확인 완료)
-        const POOL_DATA = [
-            // TOP
-            { name: '운타라', pos: 'TOP', score: 95, tier: 'S' },
-            { name: '김뿡', pos: 'TOP', score: 88, tier: 'A' },
-            { name: '룩삼', pos: 'TOP', score: 78, tier: 'B' },
-            { name: '얍얍', pos: 'TOP', score: 74, tier: 'B' },
-            { name: '한동숙', pos: 'TOP', score: 65, tier: 'C' },
-            
-            // MID
-            { name: '앰비션', pos: 'MID', score: 99, tier: 'S' },
-            { name: '인섹', pos: 'MID', score: 94, tier: 'S' },
-            { name: '랄로', pos: 'MID', score: 85, tier: 'A' },
-            { name: '피닉스박', pos: 'MID', score: 77, tier: 'B' },
-            { name: '트롤야', pos: 'MID', score: 60, tier: 'C' },
+        // [추가됨] 외부 JSON 파일 불러오기 함수
+        async function loadData() {
+            try {
+                const response = await fetch('data/pool_data.json');
+                if (!response.ok) throw new Error('데이터 로딩 실패');
+                POOL_DATA = await response.json();
+                console.log("선수 데이터 로드 완료:", POOL_DATA.length + "명");
+            } catch (error) {
+                console.error("데이터 로드 중 오류 발생:", error);
+                alert("선수 데이터를 불러오는데 실패했습니다. (로컬 실행 시 서버 필요)");
+            }
+        }
 
-            // BOT
-            { name: '괴물쥐', pos: 'BOT', score: 89, tier: 'A' },
-            { name: '명예훈장', pos: 'BOT', score: 86, tier: 'A' },
-            { name: '삼식', pos: 'BOT', score: 76, tier: 'B' },
-            { name: '러너', pos: 'BOT', score: 70, tier: 'C' },
-            { name: '따효니', pos: 'BOT', score: 62, tier: 'C' },
-
-            // SUP
-            { name: '인간젤리', pos: 'SUP', score: 92, tier: 'S' },
-            { name: '순당무', pos: 'SUP', score: 87, tier: 'A' },
-            { name: '던', pos: 'SUP', score: 75, tier: 'B' },
-            { name: '푸린', pos: 'SUP', score: 72, tier: 'B' },
-            { name: '소풍왔니', pos: 'SUP', score: 68, tier: 'C' }
-        ];
+        // 페이지 로드 시 데이터 불러오기 실행
+        loadData();
 
         let myCaptain = "";
         let teams = {};
@@ -175,30 +181,28 @@
             try {
                 myCaptain = selected;
                 
-                // 데이터 복사 및 정렬
+                // 데이터 복사 및 점수순 정렬
                 availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
 
-                // 팀 초기화
+                // 팀 초기화 (roster 속성 없이 바로 저장)
+                teams = {}; // 전역변수 초기화
                 CAPTAINS.forEach(cap => {
                     teams[cap] = { TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null };
                 });
 
-                // 순서 셔플
                 draftOrder = [...CAPTAINS].sort(() => Math.random() - 0.5);
 
-                // 화면 전환
                 document.getElementById('screen-setup').classList.remove('active');
                 document.getElementById('screen-draft').classList.add('active');
                 
                 addLog(`드래프트 순서: ${draftOrder.join(' → ')}`);
                 
-                // UI 초기 렌더링
+                // 렌더링 및 턴 시작
                 renderBoards();
-                
-                // 첫 턴 시작
                 processTurn();
+
             } catch (e) {
-                alert("게임 시작 중 오류 발생: " + e.message);
+                alert("오류 발생: " + e.message);
                 console.error(e);
             }
         }
@@ -206,36 +210,30 @@
         function getCurrentPicker() {
             const round = Math.floor(pickIndex / 5);
             const idxInRound = pickIndex % 5;
-            // 스네이크 방식: 짝수 라운드 정방향, 홀수 라운드 역방향
             const actualIdx = (round % 2 === 0) ? idxInRound : (4 - idxInRound);
             return draftOrder[actualIdx];
         }
 
         function processTurn() {
-            try {
-                if (pickIndex >= 20) {
-                    endGame();
-                    return;
-                }
+            if (pickIndex >= 20) {
+                endGame();
+                return;
+            }
 
-                const picker = getCurrentPicker();
-                const isMe = (picker === myCaptain);
+            const picker = getCurrentPicker();
+            const isMe = (picker === myCaptain);
 
-                // 텍스트 업데이트를 가장 먼저 수행
-                const turnMsg = document.getElementById('turn-msg');
-                turnMsg.innerText = isMe ? "당신의 차례입니다!" : `${picker} 님이 고민 중...`;
-                turnMsg.style.color = isMe ? "var(--chzzk-green)" : "white";
-                
-                document.getElementById('draft-info').innerText = `라운드 ${Math.floor(pickIndex/5) + 1} / 4 (전체 ${pickIndex + 1}픽)`;
+            const turnMsg = document.getElementById('turn-msg');
+            turnMsg.innerText = isMe ? "당신의 차례입니다!" : `${picker} 님이 고민 중...`;
+            turnMsg.style.color = isMe ? "var(--chzzk-green)" : "white";
+            
+            document.getElementById('draft-info').innerText = `라운드 ${Math.floor(pickIndex/5) + 1} / 4 (전체 ${pickIndex + 1}픽)`;
 
-                highlightBoard(picker);
-                renderPool(isMe ? teams[myCaptain] : null);
+            highlightBoard(picker);
+            renderPool(isMe ? teams[myCaptain] : null);
 
-                if (!isMe) {
-                    setTimeout(() => aiPick(picker), 800 + Math.random() * 500);
-                }
-            } catch (e) {
-                console.error("Turn Error:", e);
+            if (!isMe) {
+                setTimeout(() => aiPick(picker), 800 + Math.random() * 500);
             }
         }
 
@@ -245,14 +243,9 @@
             const candidates = availablePlayers.filter(p => neededPos.includes(p.pos));
             
             if (candidates.length > 0) {
-                // 점수가 높은 순(이미 정렬됨) 1순위 픽
-                // 안전을 위해 다시 정렬
                 candidates.sort((a, b) => b.score - a.score);
                 const bestPick = candidates[0];
                 confirmPick(pickerName, bestPick);
-            } else {
-                // 만약 후보가 없으면(오류 상황 등) 강제 종료 방지 위해 로그만 남김
-                console.log("AI Pick Skipped: No candidates");
             }
         }
 
@@ -278,34 +271,8 @@
             addLog(`[${pickerName}] ${player.name} (${player.pos}, ${player.tier}급) 영입!`);
             
             pickIndex++;
-            renderBoards(); // 보드 업데이트
-            processTurn();  // 다음 턴
-        }
-
-        function renderPool(myRoster) {
-            const pool = document.getElementById('pool-list');
-            pool.innerHTML = '';
-            
-            availablePlayers.forEach((p, idx) => {
-                const div = document.createElement('div');
-                div.className = 'player-card';
-                
-                if (myRoster && myRoster[p.pos] !== null) {
-                    div.classList.add('disabled');
-                }
-
-                // tier 값이 없으면 기본 'C'로 처리하여 오류 방지
-                const tierVal = p.tier || 'C';
-                const tierClass = `tier-${tierVal.charAt(0)}`;
-
-                div.innerHTML = `
-                    <div class="tier-badge ${tierClass}">${tierVal}</div>
-                    <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
-                    <strong style="font-size:1.1em;">${p.name}</strong>
-                `;
-                div.onclick = () => userPick(idx);
-                pool.appendChild(div);
-            });
+            renderBoards();
+            processTurn();
         }
 
         function highlightBoard(picker) {
@@ -314,6 +281,7 @@
             if (target) target.classList.add('current-turn');
         }
 
+        // [수정됨] t.roster[pos] -> t[pos]로 변경하여 오류 해결
         function renderBoards() {
             const boardContainer = document.getElementById('team-boards');
             boardContainer.innerHTML = '';
@@ -326,13 +294,39 @@
                     <div class="team-header">${cap} ${isMe ? '(나)' : ''}</div>`;
                 
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
-                    const mem = t.roster[pos];
+                    const mem = t[pos]; // 여기가 수정된 부분입니다 (t.roster 제거)
                     html += `<div class="roster-row ${mem ? 'filled' : ''}">
                         <span>${pos}</span> <span>${mem || '-'}</span>
                     </div>`;
                 });
                 html += `</div>`;
                 boardContainer.innerHTML += html;
+            });
+        }
+
+        function renderPool(myRoster) {
+            const pool = document.getElementById('pool-list');
+            pool.innerHTML = '';
+            
+            availablePlayers.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = 'player-card';
+                
+                // myRoster[p.pos] 접근은 여기서 올바르게 사용중
+                if (myRoster && myRoster[p.pos] !== null) {
+                    div.classList.add('disabled');
+                }
+
+                const tierVal = p.tier || 'C';
+                const tierClass = `tier-${tierVal.charAt(0)}`;
+
+                div.innerHTML = `
+                    <div class="tier-badge ${tierClass}">${tierVal}</div>
+                    <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
+                    <strong style="font-size:1.1em;">${p.name}</strong>
+                `;
+                div.onclick = () => userPick(idx);
+                pool.appendChild(div);
             });
         }
 
@@ -350,7 +344,6 @@
             document.getElementById('final-boards').innerHTML = document.getElementById('team-boards').innerHTML;
         }
 
-        // 실행
         init();
     </script>
 </body>
