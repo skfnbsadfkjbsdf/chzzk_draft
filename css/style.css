@@ -1,0 +1,362 @@
+:root {
+    --chzzk-green: #00ffa3;
+    --bg-dark: #121212;
+    --card-bg: #1e1e1e;
+    --text-main: #ffffff;
+}
+
+body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1, h2, h3 {
+    text-align: center;
+    margin: 10px 0;
+}
+
+.accent {
+    color: var(--chzzk-green);
+    font-weight: bold;
+}
+
+/* Link Styles */
+.single-link {
+    color: #aaa;
+    text-decoration: none;
+    border-bottom: 1px solid #555;
+    padding-bottom: 2px;
+    font-size: 0.9rem;
+    transition: 0.2s;
+}
+
+.single-link:hover {
+    color: var(--chzzk-green);
+    border-color: var(--chzzk-green);
+}
+
+/* Layout */
+.container {
+    width: 100%;
+    max-width: 1100px;
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    margin-bottom: 20px;
+    display: none;
+}
+
+.container.active {
+    display: block;
+}
+
+/* Buttons & Inputs */
+button {
+    background: #333;
+    color: white;
+    border: 2px solid var(--chzzk-green);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+button:hover {
+    background: var(--chzzk-green);
+    color: black;
+}
+
+button:disabled {
+    border-color: #555;
+    color: #777;
+    cursor: not-allowed;
+    background: #222;
+}
+
+input[type="text"] {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #555;
+    background: #222;
+    color: white;
+    width: 200px;
+    text-align: center;
+    margin-right: 10px;
+}
+
+/* Captain Select (Single) */
+.captain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Lobby (Multi) */
+.lobby-box {
+    text-align: center;
+    padding: 20px;
+}
+
+.btn-copy {
+    background: #444;
+    border-color: #777;
+    font-size: 0.9rem;
+    padding: 8px 15px;
+    margin-top: 10px;
+}
+
+.btn-copy:hover {
+    background: #555;
+    color: white;
+    border-color: var(--chzzk-green);
+}
+
+.room-id-display {
+    font-size: 1.5rem;
+    color: var(--chzzk-green);
+    font-weight: bold;
+    border: 2px dashed #555;
+    padding: 15px;
+    margin: 20px auto;
+    display: inline-block;
+    user-select: all;
+}
+
+.player-list {
+    margin-top: 20px;
+    background: #111;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.waiting-msg {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* Draft Screen */
+.status-bar {
+    text-align: center;
+    padding: 15px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #444;
+}
+
+.turn-msg {
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: white;
+}
+
+/* Emotes */
+.emote-controls {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.emote-btn {
+    font-size: 1.5rem;
+    padding: 5px 15px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.emote-btn:hover:not(:disabled) {
+    transform: scale(1.1);
+    background: #444;
+    border-color: var(--chzzk-green);
+}
+
+.emote-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(100%);
+}
+
+.floating-emote {
+    position: absolute;
+    right: 10px;
+    top: -15px;
+    font-size: 2rem;
+    animation: floatAndFade 3s forwards;
+    z-index: 100;
+    pointer-events: none;
+}
+
+@keyframes floatAndFade {
+    0% { opacity: 0; transform: translateY(10px) scale(0.5); }
+    10% { opacity: 1; transform: translateY(0) scale(1.2); }
+    20% { transform: translateY(0) scale(1); }
+    80% { opacity: 1; transform: translateY(-10px); }
+    100% { opacity: 0; transform: translateY(-30px); }
+}
+
+/* Player Pool */
+.pool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin-bottom: 30px;
+}
+
+.player-card {
+    background: #333;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #444;
+    position: relative;
+    overflow: hidden;
+}
+
+.player-card:hover {
+    border-color: var(--chzzk-green);
+    background: #444;
+    transform: translateY(-2px);
+}
+
+.player-card.disabled {
+    opacity: 0.2;
+    pointer-events: none;
+    filter: grayscale(100%);
+}
+
+.tier-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    background: #555;
+    color: white;
+    border-bottom-left-radius: 5px;
+}
+
+.tier-S { background: #ff4757; color: white; }
+.tier-A { background: #ffa502; color: black; }
+.tier-B { background: #2ed573; color: black; }
+.tier-C { background: #a4b0be; color: black; }
+
+.pos-badge {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+.pos-TOP { background: #ff5f5f; color: white; }
+.pos-MID { background: #5fafff; color: white; }
+.pos-BOT { background: #ffaf5f; color: black; }
+.pos-SUP { background: #af5fff; color: white; }
+
+/* Teams Board */
+.teams-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    overflow-x: auto;
+}
+
+.team-board {
+    background: #252525;
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 150px;
+    position: relative;
+}
+
+.team-board.my-team {
+    border: 2px solid var(--chzzk-green);
+    background: #2f3f35;
+}
+
+.team-board.current-turn {
+    box-shadow: 0 0 15px var(--chzzk-green);
+    border-color: var(--chzzk-green);
+    transform: scale(1.02);
+    transition: 0.3s;
+}
+
+.team-header {
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    position: relative;
+}
+
+.owner-badge {
+    font-size: 0.7rem;
+    color: #aaa;
+    display: block;
+    font-weight: normal;
+}
+
+.roster-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 3px 0;
+}
+
+.roster-row.filled {
+    color: var(--chzzk-green);
+}
+
+/* Log */
+.log-box {
+    height: 120px;
+    overflow-y: auto;
+    background: #111;
+    border: 1px solid #333;
+    padding: 10px;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.log-hl {
+    color: var(--chzzk-green);
+    font-weight: bold;
+}
+
+.log-error {
+    color: #ff5555;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .teams-container {
+        grid-template-columns: 1fr 1fr;
+    }
+}

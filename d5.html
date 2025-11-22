@@ -1,109 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2025 치지직 컵 드래프트 (최종수정)</title>
-    <style>
-        :root {
-            --chzzk-green: #00ffa3;
-            --bg-dark: #121212;
-            --card-bg: #1e1e1e;
-            --text-main: #ffffff;
-        }
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
-        }
-        h1, h2 { text-align: center; margin: 10px 0; }
-        .accent { color: var(--chzzk-green); font-weight: bold; }
+    <link rel="stylesheet" href="css/style.css">
 
-        /* 싱글버전 링크 스타일 */
-        .single-link {
-            color: #aaa;
-            text-decoration: none;
-            border-bottom: 1px solid #555;
-            padding-bottom: 2px;
-            font-size: 0.9rem;
-            transition: 0.2s;
-        }
-        .single-link:hover {
-            color: var(--chzzk-green);
-            border-color: var(--chzzk-green);
-        }
-        
-        /* Layout */
-        .container {
-            width: 100%; max-width: 1100px; background: var(--card-bg);
-            padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            margin-bottom: 20px; display: none;
-        }
-        .container.active { display: block; }
-
-        /* Captain Select */
-        .captain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 20px; }
-        button {
-            background: #333; color: white; border: 2px solid var(--chzzk-green);
-            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
-        button:hover { background: var(--chzzk-green); color: black; }
-        
-        /* Draft Screen */
-        .status-bar {
-            text-align: center; padding: 15px; background: #2a2a2a;
-            border-radius: 8px; margin-bottom: 20px; border: 1px solid #444;
-        }
-        .turn-msg { font-size: 1.3rem; font-weight: bold; margin-bottom: 5px; color: white; }
-        
-        /* Player Pool */
-        .pool-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 30px;
-        }
-        .player-card {
-            background: #333; padding: 10px; border-radius: 6px; text-align: center;
-            cursor: pointer; border: 1px solid #444; position: relative; overflow: hidden;
-        }
-        .player-card:hover { border-color: var(--chzzk-green); background: #444; transform: translateY(-2px); }
-        .player-card.disabled { opacity: 0.2; pointer-events: none; filter: grayscale(100%); }
-        
-        .tier-badge {
-            position: absolute; top: 0; right: 0; font-size: 0.7rem; padding: 2px 5px;
-            background: #555; color: white; border-bottom-left-radius: 5px;
-        }
-        .tier-S { background: #ff4757; color: white; }
-        .tier-A { background: #ffa502; color: black; }
-        .tier-B { background: #2ed573; color: black; }
-        .tier-C { background: #a4b0be; color: black; }
-
-        .pos-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-bottom: 4px;}
-        .pos-TOP { background: #ff5f5f; color: white; }
-        .pos-MID { background: #5fafff; color: white; }
-        .pos-BOT { background: #ffaf5f; color: black; }
-        .pos-SUP { background: #af5fff; color: white; }
-
-        /* Teams Board */
-        .teams-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-x: auto; }
-        .team-board { background: #252525; padding: 10px; border-radius: 8px; min-width: 150px; }
-        .team-board.my-team { border: 2px solid var(--chzzk-green); background: #2f3f35; }
-        .team-board.current-turn { box-shadow: 0 0 15px var(--chzzk-green); border-color: var(--chzzk-green); transform: scale(1.02); transition: 0.3s;}
-        
-        .team-header { font-weight: bold; text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; }
-        .roster-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 3px 0; }
-        .roster-row.filled { color: var(--chzzk-green); }
-        
-        /* Log */
-        .log-box {
-            height: 120px; overflow-y: auto; background: #111; border: 1px solid #333;
-            padding: 10px; margin-top: 20px; font-size: 0.85rem; color: #aaa;
-        }
-        .log-hl { color: var(--chzzk-green); font-weight: bold; }
-
-        @media (max-width: 768px) { .teams-container { grid-template-columns: 1fr 1fr; } }
-    </style>
 </head>
+
 <body>
 
     <h1>2025 <span class="accent">CHZZK CUP</span> 드래프트</h1>
@@ -113,7 +18,7 @@
             🎲 멀티 버전 이동
         </a>
     </p>
-    
+
     <div id="screen-setup" class="container active">
         <h2>팀장(JUNGLE)을 선택하세요</h2>
         <p style="text-align: center; color: #aaa;">※ AI가 실력(Tier) 순으로 선수를 영입합니다!</p>
@@ -163,7 +68,7 @@
 
         let myCaptain = "";
         let teams = {};
-        let draftOrder = []; 
+        let draftOrder = [];
         let availablePlayers = [];
         let pickIndex = 0;
 
@@ -180,7 +85,7 @@
         function startGame(selected) {
             try {
                 myCaptain = selected;
-                
+
                 // 데이터 복사 및 점수순 정렬
                 availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
 
@@ -194,9 +99,9 @@
 
                 document.getElementById('screen-setup').classList.remove('active');
                 document.getElementById('screen-draft').classList.add('active');
-                
+
                 addLog(`드래프트 순서: ${draftOrder.join(' → ')}`);
-                
+
                 // 렌더링 및 턴 시작
                 renderBoards();
                 processTurn();
@@ -226,8 +131,8 @@
             const turnMsg = document.getElementById('turn-msg');
             turnMsg.innerText = isMe ? "당신의 차례입니다!" : `${picker} 님이 고민 중...`;
             turnMsg.style.color = isMe ? "var(--chzzk-green)" : "white";
-            
-            document.getElementById('draft-info').innerText = `라운드 ${Math.floor(pickIndex/5) + 1} / 4 (전체 ${pickIndex + 1}픽)`;
+
+            document.getElementById('draft-info').innerText = `라운드 ${Math.floor(pickIndex / 5) + 1} / 4 (전체 ${pickIndex + 1}픽)`;
 
             highlightBoard(picker);
             renderPool(isMe ? teams[myCaptain] : null);
@@ -241,7 +146,7 @@
             const roster = teams[pickerName];
             const neededPos = ['TOP', 'MID', 'BOT', 'SUP'].filter(p => roster[p] === null);
             const candidates = availablePlayers.filter(p => neededPos.includes(p.pos));
-            
+
             if (candidates.length > 0) {
                 candidates.sort((a, b) => b.score - a.score);
                 const bestPick = candidates[0];
@@ -264,12 +169,12 @@
 
         function confirmPick(pickerName, player) {
             teams[pickerName][player.pos] = player.name;
-            
+
             const realIdx = availablePlayers.findIndex(p => p.name === player.name && p.pos === player.pos);
             if (realIdx > -1) availablePlayers.splice(realIdx, 1);
 
             addLog(`[${pickerName}] ${player.name} (${player.pos}, ${player.tier}급) 영입!`);
-            
+
             pickIndex++;
             renderBoards();
             processTurn();
@@ -289,10 +194,10 @@
             CAPTAINS.forEach(cap => {
                 const t = teams[cap];
                 const isMe = cap === myCaptain;
-                
+
                 let html = `<div id="board-${cap}" class="team-board ${isMe ? 'my-team' : ''}">
                     <div class="team-header">${cap} ${isMe ? '(나)' : ''}</div>`;
-                
+
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
                     const mem = t[pos]; // 여기가 수정된 부분입니다 (t.roster 제거)
                     html += `<div class="roster-row ${mem ? 'filled' : ''}">
@@ -307,11 +212,11 @@
         function renderPool(myRoster) {
             const pool = document.getElementById('pool-list');
             pool.innerHTML = '';
-            
+
             availablePlayers.forEach((p, idx) => {
                 const div = document.createElement('div');
                 div.className = 'player-card';
-                
+
                 // myRoster[p.pos] 접근은 여기서 올바르게 사용중
                 if (myRoster && myRoster[p.pos] !== null) {
                     div.classList.add('disabled');
@@ -334,7 +239,7 @@
             const box = document.getElementById('log-box');
             const p = document.createElement('div');
             p.innerHTML = `> ${msg}`;
-            if(msg.includes('영입')) p.classList.add('log-hl');
+            if (msg.includes('영입')) p.classList.add('log-hl');
             box.prepend(p);
         }
 
@@ -347,4 +252,5 @@
         init();
     </script>
 </body>
+
 </html>
