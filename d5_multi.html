@@ -7,7 +7,6 @@
     <title>2025 치지직 컵 멀티 드래프트</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
-
 </head>
 
 <body>
@@ -47,6 +46,18 @@
         </div>
     </div>
 
+    <div id="screen-selection" class="container">
+        <h2>팀장 선택</h2>
+        <p>원하는 팀장을 선택하세요! (선착순)</p>
+        <div class="timer-bar">
+            <div id="selection-timer" class="timer-fill"></div>
+        </div>
+        <div id="selection-status" style="font-size: 1.2rem; margin-bottom: 10px;">남은 시간: 20초</div>
+        <div class="captain-select-grid" id="captain-list">
+            <!-- Captain cards will be injected here -->
+        </div>
+    </div>
+
     <div id="screen-game" class="container">
         <div class="status-bar">
             <div id="turn-msg" class="turn-msg">게임 준비 중...</div>
@@ -56,7 +67,6 @@
                 <button class="emote-btn" onclick="sendEmote('😲')" title="놀람">😲</button>
                 <button class="emote-btn" onclick="sendEmote('😭')" title="슬픔">😭</button>
             </div>
-            <div style="font-size:0.8rem; color:#555; margin-top:5px;">* 4초에 1번 사용 가능</div>
         </div>
         <h3>영입 가능 선수 (실력순)</h3>
         <div class="pool-grid" id="pool-list"></div>
@@ -67,9 +77,8 @@
 
     <script>
         const CAPTAINS = ['갱맘', '뱅', '소우릎', '울프', '큐베'];
-        let POOL_DATA = []; // const가 아닌 let으로 변경 (데이터를 채워넣어야 하므로)
+        let POOL_DATA = [];
 
-        // [추가됨] 외부 JSON 파일 불러오기 함수
         async function loadData() {
             try {
                 const response = await fetch('data/pool_data.json');
@@ -82,7 +91,6 @@
             }
         }
 
-        // 페이지 로드 시 데이터 불러오기 실행
         loadData();
 
         let peer = null;
@@ -92,15 +100,27 @@
         let myId = null;
         let myName = '';
         let heartbeatInterval = null;
-        let gameState = { isStarted: false, players: [], teams: {}, availablePlayers: [], draftOrder: [], pickIndex: 0, logs: [] };
+        let selectionTimerInterval = null;
+        let gameState = {
+            phase: 'LOBBY', // LOBBY, SELECTION, DRAFT
+            isStarted: false,
+            players: [],
+            teams: {},
+            availablePlayers: [],
+            draftOrder: [],
+            pickIndex: 0,
+            logs: [],
+            captainSelection: {
+                startTime: 0,
+                selections: {}, // captainName -> playerId
+                timeLeft: 20
+            }
+        };
         let emoteCooldown = false;
 
-        // [추가] 탭 닫기 감지 (임종 직전 신호 보내기)
         window.addEventListener('beforeunload', () => {
             if (isHost) {
-                // 호스트가 나가면 모든 게스트에게 알림 (선택사항)
             } else if (myConn && myConn.open) {
-                // 게스트가 나가면 호스트에게 LEAVE 패킷 전송
                 myConn.send({ type: 'LEAVE', peerId: myId });
             }
         });
@@ -127,20 +147,19 @@
                 if (!isHost) return;
                 conn.on('open', () => { handleGuestJoin(conn); });
                 conn.on('data', (data) => {
-                    // [중요] LEAVE 신호를 받으면 즉시 처리
                     if (data.type === 'LEAVE') {
                         handleGuestLeave(conn.peer);
                         return;
                     }
-                    // 하트비트, 이모지, 픽 등 어떤 데이터든 오면 생존으로 간주
                     handlePong(conn.peer);
 
-                    if (data.type === 'PING') { /* Host doesn't need to reply PONG usually */ }
+                    if (data.type === 'PING') { }
                     if (data.type === 'PICK') handlePickRequest(conn.peer, data.idx);
                     if (data.type === 'EMOTE') {
                         triggerEmoteDisplay(data.captain, data.emoji);
                         broadcastData({ type: 'EMOTE', captain: data.captain, emoji: data.emoji });
                     }
+                    if (data.type === 'SELECT_CAPTAIN') handleCaptainSelect(conn.peer, data.captain);
                 });
                 conn.on('close', () => { handleGuestLeave(conn.peer); });
                 conn.on('error', () => { handleGuestLeave(conn.peer); });
@@ -179,15 +198,19 @@
                     if (data.type === 'STATE_UPDATE') {
                         gameState = data.state;
                         if (gameState.isStarted) {
-                            if (!document.getElementById('screen-game').classList.contains('active')) {
-                                document.getElementById('screen-lobby').classList.remove('active');
-                                document.getElementById('screen-game').classList.add('active');
+                            if (gameState.phase === 'SELECTION') {
+                                switchScreen('screen-selection');
+                                renderCaptainSelection();
+                            } else if (gameState.phase === 'DRAFT') {
+                                switchScreen('screen-game');
+                                renderGame();
                             }
-                            renderGame();
                         } else { updateLobbyUI(); }
-                    } else if (data.type === 'START') {
-                        document.getElementById('screen-lobby').classList.remove('active');
-                        document.getElementById('screen-game').classList.add('active');
+                    } else if (data.type === 'START_SELECTION') {
+                        switchScreen('screen-selection');
+                        renderCaptainSelection();
+                    } else if (data.type === 'START_GAME') {
+                        switchScreen('screen-game');
                         renderGame();
                     } else if (data.type === 'EMOTE') {
                         triggerEmoteDisplay(data.captain, data.emoji);
@@ -207,7 +230,6 @@
                 for (let i = gameState.players.length - 1; i >= 0; i--) {
                     const p = gameState.players[i];
                     if (p.id === myId) { p.lastHeartbeat = now; continue; }
-                    // 20초 타임아웃 (백그라운드 고려)
                     if (now - p.lastHeartbeat > 20000) {
                         console.log(`Timeout: ${p.name} disconnected`);
                         handleGuestLeave(p.id);
@@ -230,7 +252,11 @@
                 return;
             }
             guestConns.push(conn);
-            gameState.players.push({ id: conn.peer, name: `참가자 ${gameState.players.length}`, assignedCaptain: null, lastHeartbeat: Date.now() });
+            gameState.players.push({
+                id: conn.peer, name: `참가자 ${gameState.players.length}`, assignedCaptain:
+                    null,
+                lastHeartbeat: Date.now()
+            });
             broadcastState();
             checkAutoStart();
         }
@@ -245,10 +271,20 @@
                     gameState.teams[cap].ownerName = 'AI (대타)';
                     addGameLog(`🚫 ${leaver.name}님이 연결이 끊겨서 AI로 대체하여 진행합니다.`);
                 }
+                if (gameState.phase === 'SELECTION') {
+                    const selectedCap = Object.keys(gameState.captainSelection.selections).find(cap =>
+                        gameState.captainSelection.selections[cap] === peerId);
+                    if (selectedCap) {
+                        delete gameState.captainSelection.selections[selectedCap];
+                    }
+                }
                 gameState.players.splice(idx, 1);
                 guestConns = guestConns.filter(c => c.peer !== peerId);
                 broadcastState();
-                if (gameState.isStarted) checkAiTurn();
+                if (gameState.phase === 'DRAFT') checkAiTurn();
+                else if (gameState.phase === 'SELECTION') {
+                    broadcastState();
+                }
                 else updateLobbyUI();
             }
         }
@@ -257,15 +293,108 @@
             if (gameState.isStarted) return;
             if (gameState.players.length === 5) {
                 gameState.isStarted = true;
-                setTimeout(() => { gameStart(); }, 1000);
+                setTimeout(() => { startCaptainSelection(); }, 1000);
             }
+        }
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function startCaptainSelection() {
+            if (!isHost) return;
+            gameState.phase = 'SELECTION';
+            gameState.captainSelection.startTime = Date.now();
+            gameState.captainSelection.timeLeft = 20;
+            gameState.captainSelection.selections = {};
+
+            broadcastData({ type: 'START_SELECTION' });
+            switchScreen('screen-selection');
+            renderCaptainSelection();
+            broadcastState();
+
+            if (selectionTimerInterval) clearInterval(selectionTimerInterval);
+            selectionTimerInterval = setInterval(() => {
+                gameState.captainSelection.timeLeft--;
+                if (gameState.captainSelection.timeLeft <= 0) {
+                    clearInterval(selectionTimerInterval);
+                    finalizeCaptainSelection();
+                } else { broadcastState(); }
+            }, 1000);
+        } function
+            handleCaptainSelect(peerId, captainName) {
+            if (!isHost) return; if (gameState.phase
+                !== 'SELECTION') return; if (gameState.captainSelection.selections[captainName]) return; const
+                    existingSelection = Object.keys(gameState.captainSelection.selections).find(cap =>
+                        gameState.captainSelection.selections[cap] === peerId);
+            if (existingSelection) delete gameState.captainSelection.selections[existingSelection];
+
+            gameState.captainSelection.selections[captainName] = peerId;
+            broadcastState();
+
+            if (Object.keys(gameState.captainSelection.selections).length === gameState.players.length) {
+                clearInterval(selectionTimerInterval);
+                setTimeout(finalizeCaptainSelection, 1000);
+            }
+        }
+
+        function finalizeCaptainSelection() {
+            if (!isHost) return;
+            const unselectedPlayers = gameState.players.filter(p =>
+                !Object.values(gameState.captainSelection.selections).includes(p.id));
+            const availableCaptains = CAPTAINS.filter(cap => !gameState.captainSelection.selections[cap]);
+
+            availableCaptains.sort(() => Math.random() - 0.5);
+
+            unselectedPlayers.forEach((p, idx) => {
+                if (idx < availableCaptains.length) {
+                    gameState.captainSelection.selections[availableCaptains[idx]] = p.id;
+                }
+            }); gameStart();
+        }
+        function renderCaptainSelection() {
+            const list = document.getElementById('captain-list');
+            list.innerHTML = ''; const
+                mySelection = Object.keys(gameState.captainSelection.selections).find(cap =>
+                    gameState.captainSelection.selections[cap] === myId);
+
+            CAPTAINS.forEach(cap => {
+                const div = document.createElement('div');
+                div.className = 'captain-card';
+
+                const ownerId = gameState.captainSelection.selections[cap];
+                const owner = gameState.players.find(p => p.id === ownerId);
+
+                div.innerHTML = `<h3>${cap}</h3>`;
+
+                if (ownerId) {
+                    div.classList.add('taken');
+                    div.innerHTML += `<p>${owner ? owner.name : 'Unknown'}</p>`;
+                    if (ownerId === myId) div.classList.add('selected');
+                } else {
+                    div.innerHTML += `<p>선택 가능</p>`;
+                    div.onclick = () => {
+                        if (mySelection) return;
+                        if (isHost) handleCaptainSelect(myId, cap);
+                        else myConn.send({ type: 'SELECT_CAPTAIN', captain: cap });
+                    };
+                }
+                list.appendChild(div);
+            });
+
+            document.getElementById('selection-status').innerText = `남은 시간:
+                            ${gameState.captainSelection.timeLeft}초`;
+            const pct = (gameState.captainSelection.timeLeft / 20) * 100;
+            document.getElementById('selection-timer').style.width = `${pct}%`;
         }
 
         function broadcastState() {
             const packet = { type: 'STATE_UPDATE', state: gameState };
             guestConns.forEach(c => { if (c.open) c.send(packet); });
             if (isHost) {
-                if (gameState.isStarted) renderGame();
+                if (gameState.phase === 'DRAFT') renderGame();
+                else if (gameState.phase === 'SELECTION') renderCaptainSelection();
                 else updateLobbyUI();
             }
         }
@@ -288,16 +417,15 @@
             cnt.innerText = gameState.players.length;
             const msgEl = document.getElementById('lobby-status-msg');
             if (gameState.players.length < 5) {
-                msgEl.innerText = `플레이어를 기다리는 중... (${gameState.players.length}/5명)`;
+                msgEl.innerText = `플레이어를 기다리는 중...
+                                (${gameState.players.length}/5명)`;
             } else {
                 msgEl.innerText = "잠시 후 게임이 시작됩니다!";
                 msgEl.style.color = "var(--chzzk-green)";
             }
-        }
-
-        function sendEmote(emoji) {
-            if (emoteCooldown) return;
-            const myPlayer = gameState.players.find(p => p.id === myId);
+        } function sendEmote(emoji) {
+            if
+                (emoteCooldown) return; const myPlayer = gameState.players.find(p => p.id === myId);
             const myCap = myPlayer ? myPlayer.assignedCaptain : null;
             if (!myCap) return alert("아직 팀이 배정되지 않았거나 관전자입니다.");
             startEmoteCooldown();
@@ -332,26 +460,33 @@
 
         function gameStart() {
             if (!isHost) return;
-            gameState.availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) => b.score - a.score);
+            gameState.phase = 'DRAFT';
+            gameState.availablePlayers = JSON.parse(JSON.stringify(POOL_DATA)).sort((a, b) =>
+                b.score -
+                a.score);
             gameState.draftOrder = [...CAPTAINS].sort(() => Math.random() - 0.5);
             gameState.pickIndex = 0;
             gameState.teams = {};
-            const shuffledCaps = [...CAPTAINS].sort(() => Math.random() - 0.5);
+
             CAPTAINS.forEach(cap => {
-                gameState.teams[cap] = { TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null, ownerId: 'AI', ownerName: 'AI' };
+                gameState.teams[cap] = {
+                    TOP: null, JUNGLE: cap, MID: null, BOT: null, SUP: null,
+                    ownerId:
+                        'AI', ownerName: 'AI'
+                };
             });
-            gameState.players.forEach((p, idx) => {
-                if (idx < 5) {
-                    const assignedCap = shuffledCaps[idx];
+            gameState.players.forEach((p) => {
+                const assignedCap = Object.keys(gameState.captainSelection.selections).find(c =>
+                    gameState.captainSelection.selections[c] === p.id);
+                if (assignedCap) {
                     p.assignedCaptain = assignedCap;
                     gameState.teams[assignedCap].ownerId = p.id;
                     gameState.teams[assignedCap].ownerName = p.name;
                 }
             });
             addGameLog(`게임 시작! 드래프트 순서: ${gameState.draftOrder.join(' → ')}`);
-            guestConns.forEach(c => { if (c.open) c.send({ type: 'START' }); });
-            document.getElementById('screen-lobby').classList.remove('active');
-            document.getElementById('screen-game').classList.add('active');
+            guestConns.forEach(c => { if (c.open) c.send({ type: 'START_GAME' }); });
+            switchScreen('screen-game');
             broadcastState();
             checkAiTurn();
         }
@@ -387,10 +522,13 @@
         function aiPick(capName) {
             const roster = gameState.teams[capName];
             const neededPos = ['TOP', 'MID', 'BOT', 'SUP'].filter(p => roster[p] === null);
-            const candidates = gameState.availablePlayers.filter(p => neededPos.includes(p.pos));
+            const candidates = gameState.availablePlayers.filter(p =>
+                neededPos.includes(p.pos));
             if (candidates.length > 0) {
                 const pickName = candidates[0].name;
-                const realIdx = gameState.availablePlayers.findIndex(p => p.name === pickName && p.pos === candidates[0].pos);
+                const realIdx = gameState.availablePlayers.findIndex(p => p.name === pickName &&
+                    p.pos
+                    === candidates[0].pos);
                 processPick(capName, realIdx);
             }
         }
@@ -433,7 +571,9 @@
                 turnMsg.innerText = `${currentCap} (${teamInfo.ownerName}) 님이 고민 중...`;
                 turnMsg.style.color = "white";
             }
-            document.getElementById('draft-info').innerText = `라운드 ${Math.floor(gameState.pickIndex / 5) + 1} / 4 (전체 ${gameState.pickIndex + 1}픽)`;
+            document.getElementById('draft-info').innerText = `라운드
+                                    ${Math.floor(gameState.pickIndex
+                / 5) + 1} / 4 (전체 ${gameState.pickIndex + 1}픽)`;
             renderPool(isMyTurn, currentCap);
             renderBoards(currentCap);
         }
@@ -451,10 +591,10 @@
                 if (disabled) div.classList.add('disabled');
                 const tierVal = p.tier || 'C';
                 div.innerHTML = `
-                    <div class="tier-badge tier-${tierVal.charAt(0)}">${tierVal}</div>
-                    <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
-                    <strong style="font-size:1.1em;">${p.name}</strong>
-                `;
+                                    <div class="tier-badge tier-${tierVal.charAt(0)}">${tierVal}</div>
+                                    <span class="pos-badge pos-${p.pos}">${p.pos}</span><br>
+                                    <strong style="font-size:1.1em;">${p.name}</strong>
+                                    `;
                 div.onclick = () => {
                     if (!isMyTurn || disabled) return;
                     if (isHost) processPick(currentCap, idx);
@@ -467,14 +607,19 @@
         function renderBoards(currentCap) {
             const boardContainer = document.getElementById('team-boards');
             boardContainer.innerHTML = '';
-            CAPTAINS.forEach(cap => {
+
+            // gameState.draftOrder가 있으면 그것을 사용, 없으면 기본 CAPTAINS 순서
+            const order = (gameState.draftOrder && gameState.draftOrder.length > 0) ? gameState.draftOrder : CAPTAINS;
+
+            order.forEach(cap => {
                 const t = gameState.teams[cap];
                 const isMine = (t.ownerId === myId);
                 const isTurn = (cap === currentCap && gameState.pickIndex < 20);
                 let html = `<div class="team-board ${isMine ? 'my-team' : ''} ${isTurn ? 'current-turn' : ''}">
                     <div class="team-header" id="header-${cap}">
-                        ${cap} 
-                        <span class="owner-badge">${t.ownerName === '방장(나)' && !isHost ? '방장' : t.ownerName}</span>
+                        ${cap}
+                        <span class="owner-badge">${t.ownerName === '방장(나)' && !isHost ? '방장' :
+                        t.ownerName}</span>
                     </div>`;
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
                     const mem = t[pos];

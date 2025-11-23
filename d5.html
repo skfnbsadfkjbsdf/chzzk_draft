@@ -186,12 +186,13 @@
             if (target) target.classList.add('current-turn');
         }
 
-        // [수정됨] t.roster[pos] -> t[pos]로 변경하여 오류 해결
         function renderBoards() {
             const boardContainer = document.getElementById('team-boards');
             boardContainer.innerHTML = '';
 
-            CAPTAINS.forEach(cap => {
+            const order = (draftOrder && draftOrder.length > 0) ? draftOrder : CAPTAINS;
+
+            order.forEach(cap => {
                 const t = teams[cap];
                 const isMe = cap === myCaptain;
 
@@ -199,7 +200,7 @@
                     <div class="team-header">${cap} ${isMe ? '(나)' : ''}</div>`;
 
                 ['TOP', 'JUNGLE', 'MID', 'BOT', 'SUP'].forEach(pos => {
-                    const mem = t[pos]; // 여기가 수정된 부분입니다 (t.roster 제거)
+                    const mem = t[pos];
                     html += `<div class="roster-row ${mem ? 'filled' : ''}">
                         <span>${pos}</span> <span>${mem || '-'}</span>
                     </div>`;
@@ -217,7 +218,6 @@
                 const div = document.createElement('div');
                 div.className = 'player-card';
 
-                // myRoster[p.pos] 접근은 여기서 올바르게 사용중
                 if (myRoster && myRoster[p.pos] !== null) {
                     div.classList.add('disabled');
                 }
