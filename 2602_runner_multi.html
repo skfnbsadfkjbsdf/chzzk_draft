@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>러너리그 멀티 드래프트</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="css/style1.css" />
     <style>
       /* 추가 스타일: 티어 숨기기 */
@@ -48,6 +48,10 @@
             <br />
             <button class="btn-copy" onclick="copyInviteLink()">
               📋 주소 + 방 ID 복사
+            </button>
+            <br><br>
+            <button id="btn-force-start" class="btn-force" style="background-color: #666; color: white;" onclick="forceStartWithAi()">
+              ⚡ 바로 시작 (남은 자리 AI 채우기)
             </button>
           </div>
           <div class="player-list">
@@ -166,49 +170,34 @@
             alert("복사에 실패했습니다. 화면의 ID를 직접 복사해주세요.");
           });
       }
-
       function initPeer(onOpen) {
-        peer = new Peer(null, { debug: 1 });
-        peer.on("open", (id) => {
-          myId = id;
-          if (onOpen) onOpen(id);
-        });
-        peer.on("connection", (conn) => {
-          if (!isHost) return;
-          conn.on("open", () => {
-            handleGuestJoin(conn);
+          peer = new Peer(null, { debug: 1 });
+          peer.on('open', (id) => {
+              myId = id;
+              if (onOpen) onOpen(id);
           });
-          conn.on("data", (data) => {
-            if (data.type === "LEAVE") {
-              handleGuestLeave(conn.peer);
-              return;
-            }
-            handlePong(conn.peer);
+          peer.on('connection', (conn) => {
+              if (!isHost) return;
+              conn.on('open', () => { handleGuestJoin(conn); });
+              conn.on('data', (data) => {
+                  if (data.type === 'LEAVE') {
+                      handleGuestLeave(conn.peer);
+                      return;
+                  }
+                  handlePong(conn.peer);
 
-            if (data.type === "PING") {
-            }
-            if (data.type === "PICK") handlePickRequest(conn.peer, data.idx);
-            if (data.type === "EMOTE") {
-              triggerEmoteDisplay(data.captain, data.emoji);
-              broadcastData({
-                type: "EMOTE",
-                captain: data.captain,
-                emoji: data.emoji,
+                  if (data.type === 'PING') { }
+                  if (data.type === 'PICK') handlePickRequest(conn.peer, data.idx);
+                  if (data.type === 'EMOTE') {
+                      triggerEmoteDisplay(data.captain, data.emoji);
+                      broadcastData({ type: 'EMOTE', captain: data.captain, emoji: data.emoji });
+                  }
+                  if (data.type === 'SELECT_CAPTAIN') handleCaptainSelect(conn.peer, data.captain);
               });
-            }
-            if (data.type === "SELECT_CAPTAIN")
-              handleCaptainSelect(conn.peer, data.captain);
+              conn.on('close', () => { handleGuestLeave(conn.peer); });
+              conn.on('error', () => { handleGuestLeave(conn.peer); });
           });
-          conn.on("close", () => {
-            handleGuestLeave(conn.peer);
-          });
-          conn.on("error", () => {
-            handleGuestLeave(conn.peer);
-          });
-        });
-        peer.on("error", (err) => {
-          console.error("PeerJS Error:", err);
-        });
+          peer.on('error', (err) => { console.error("PeerJS Error:", err); });
       }
 
       function createRoom() {
@@ -237,10 +226,15 @@
         document.getElementById("conn-status").innerText = "접속 시도 중...";
         isHost = false;
         initPeer((id) => {
+          console.log(`PeerJS: 방(${roomId})에 연결 시도 중...`);
           myConn = peer.connect(roomId);
           myConn.on("open", () => {
+            console.log("PeerJS: 방장과 데이터 채널 오픈 성공!");
             document.getElementById("initial-choice").style.display = "none";
             document.getElementById("connected-ui").style.display = "block";
+          });
+          myConn.on("error", (err) => {
+            console.error("PeerJS 연결 오류:", err);
           });
           myConn.on("data", (data) => {
             if (data.type === "PING") {
@@ -293,7 +287,7 @@
               p.lastHeartbeat = now;
               continue;
             }
-            if (now - p.lastHeartbeat > 20000) {
+            if (now - p.lastHeartbeat > 60000) {
               console.log(`Timeout: ${p.name} disconnected`);
               handleGuestLeave(p.id);
             }
@@ -369,6 +363,49 @@
         }
       }
 
+      function forceStartWithAi() {
+        if (!isHost || gameState.isStarted) {
+          console.warn("PeerJS: 강제 시작 중단 - 이미 시작되었거나 호스트가 아님", {isHost, isStarted: gameState.isStarted});
+          return;
+        }
+
+        console.log("PeerJS: [1/4] 강제 시작 프로세스 시작 (AI 채우기)");
+        
+        try {
+          // 부족한 인원만큼 더미 플레이어 추가
+          const currentCount = gameState.players.length;
+          const needed = 5 - currentCount;
+          console.log(`PeerJS: [2/4] 현재 인원 ${currentCount}명, AI ${needed}명 추가 시도`);
+          
+          for (let i = 0; i < needed; i++) {
+            const dummyId = `AI-DUMMY-${Math.random().toString(36).substr(2, 9)}`;
+            gameState.players.push({
+              id: dummyId,
+              name: `AI 참가자 ${currentCount + i + 1}`,
+              assignedCaptain: null,
+              lastHeartbeat: Date.now()
+            });
+          }
+
+          gameState.isStarted = true;
+          const btn = document.getElementById('btn-force-start');
+          if (btn) btn.style.display = 'none';
+          
+          console.log("PeerJS: [3/4] 로비 UI 업데이트 및 상태 전송");
+          updateLobbyUI();
+          broadcastState();
+
+          console.log("PeerJS: [4/4] 1초 후 팀장 선택 단계로 전환 예정");
+          setTimeout(() => {
+            console.log("PeerJS: 팀장 선택 단계 전환 실행");
+            startCaptainSelection();
+          }, 1000);
+        } catch (err) {
+          console.error("PeerJS: 강제 시작 중 치명적 오류 발생:", err);
+          alert("강제 시작 중 오류가 발생했습니다: " + err.message);
+        }
+      }
+
       function switchScreen(screenId) {
         document
           .querySelectorAll(".container")
@@ -377,6 +414,7 @@
       }
 
       function startCaptainSelection() {
+        console.log("PeerJS: startCaptainSelection() 호출됨");
         if (!isHost) return;
         gameState.phase = "SELECTION";
         gameState.captainSelection.startTime = Date.now();
@@ -419,6 +457,17 @@
         ) {
           clearInterval(selectionTimerInterval);
           setTimeout(finalizeCaptainSelection, 1000);
+        } else {
+          // AI 참가자만 남았는지 확인하여 자동 넘어가기
+          const unselected = gameState.players.filter(
+            p => !Object.values(gameState.captainSelection.selections).includes(p.id)
+          );
+          const allAi = unselected.every(p => p.id.startsWith("AI-DUMMY-"));
+          if (unselected.length > 0 && allAi) {
+            console.log("PeerJS: 남은 참가자가 모두 AI이므로 타이머 단축");
+            clearInterval(selectionTimerInterval);
+            setTimeout(finalizeCaptainSelection, 500); 
+          }
         }
       }
 
@@ -581,6 +630,8 @@
           };
         });
         gameState.players.forEach((p) => {
+          // AI 더미 플레이어는 건너뛰기 (ownerId를 'AI'로 유지)
+          if (p.id.startsWith("AI-DUMMY")) return;
           const assignedCap = Object.keys(
             gameState.captainSelection.selections,
           ).find((c) => gameState.captainSelection.selections[c] === p.id);
@@ -642,20 +693,30 @@
       function checkAiTurn() {
         if (gameState.pickIndex >= 20) return;
         const currentCap = getCurrentPicker();
+        // 콘솔로 AI 턴인지 확인
+        console.log(`[Turn Check] Idx: ${gameState.pickIndex}, Cap: ${currentCap}, Owner: ${gameState.teams[currentCap].ownerId}`);
+        
         const teamInfo = gameState.teams[currentCap];
-        if (teamInfo.ownerId === "AI") {
+        // ownerId가 "AI"로 시작하는 경우
+        if (teamInfo.ownerId && teamInfo.ownerId.startsWith("AI")) {
+          // 1초 뒤 자동 픽 (너무 빠르면 어색함)
           setTimeout(() => aiPick(currentCap), 1000);
         }
       }
 
       function aiPick(capName) {
+        console.log(`[AI Pick] Executing for ${capName}`);
         const roster = gameState.teams[capName];
+        
+        // !roster[...] 체크가 더 확실함 (null, undefined, "" 모두 체크)
         const availableDealerSlots =
-          (roster["DEALER1"] === null ? 1 : 0) +
-          (roster["DEALER2"] === null ? 1 : 0);
+          (!roster["DEALER1"] ? 1 : 0) +
+          (!roster["DEALER2"] ? 1 : 0);
         const availableHealerSlots =
-          (roster["HEALER1"] === null ? 1 : 0) +
-          (roster["HEALER2"] === null ? 1 : 0);
+          (!roster["HEALER1"] ? 1 : 0) +
+          (!roster["HEALER2"] ? 1 : 0);
+
+        console.log(`[AI Pick] Needs: Dealer(${availableDealerSlots}), Healer(${availableHealerSlots})`);
 
         const candidates = gameState.availablePlayers.filter((p) => {
           if (p.pos === "DEALER" && availableDealerSlots > 0) return true;
@@ -664,13 +725,15 @@
         });
 
         if (candidates.length > 0) {
-          // 무작위 선택 (어차피 점수 동일)
           const randIdx = Math.floor(Math.random() * candidates.length);
           const pickName = candidates[randIdx].name;
           const realIdx = gameState.availablePlayers.findIndex(
             (p) => p.name === pickName,
           );
+          console.log(`[AI Pick] Selected: ${pickName}`);
           processPick(capName, realIdx);
+        } else {
+           console.error("[AI Pick] No candidates found! This shouldn't happen unless pool is empty.");
         }
       }
 
