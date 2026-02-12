@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>러너리그 멀티 드래프트</title>
-    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="css/style1.css" />
     <style>
       /* 추가 스타일: 티어 숨기기 */
@@ -173,12 +173,16 @@
       function initPeer(onOpen) {
           peer = new Peer(null, { debug: 1 });
           peer.on('open', (id) => {
+              console.log('[DIAG] peer.open 이벤트 발생, id:', id);
               myId = id;
               if (onOpen) onOpen(id);
           });
+          peer.on('disconnected', () => { console.warn('[DIAG] peer.disconnected - 시그널링 서버 연결 끊김'); });
+          peer.on('close', () => { console.warn('[DIAG] peer.close - Peer 객체 종료'); });
           peer.on('connection', (conn) => {
+              console.log('[DIAG] HOST: 새 연결 수신, peer:', conn.peer, 'open:', conn.open);
               if (!isHost) return;
-              conn.on('open', () => { handleGuestJoin(conn); });
+              conn.on('open', () => { console.log('[DIAG] HOST: conn.open 이벤트 발생, peer:', conn.peer); handleGuestJoin(conn); });
               conn.on('data', (data) => {
                   if (data.type === 'LEAVE') {
                       handleGuestLeave(conn.peer);
@@ -194,10 +198,10 @@
                   }
                   if (data.type === 'SELECT_CAPTAIN') handleCaptainSelect(conn.peer, data.captain);
               });
-              conn.on('close', () => { handleGuestLeave(conn.peer); });
-              conn.on('error', () => { handleGuestLeave(conn.peer); });
+              conn.on('close', () => { console.warn('[DIAG] HOST: conn.close, peer:', conn.peer); handleGuestLeave(conn.peer); });
+              conn.on('error', (err) => { console.error('[DIAG] HOST: conn.error, peer:', conn.peer, err); handleGuestLeave(conn.peer); });
           });
-          peer.on('error', (err) => { console.error("PeerJS Error:", err); });
+          peer.on('error', (err) => { console.error("[DIAG] peer.error:", err.type, err); });
       }
 
       function createRoom() {
@@ -226,15 +230,22 @@
         document.getElementById("conn-status").innerText = "접속 시도 중...";
         isHost = false;
         initPeer((id) => {
-          console.log(`PeerJS: 방(${roomId})에 연결 시도 중...`);
+          console.log(`[DIAG] GUEST: 방(${roomId})에 연결 시도 중...`);
           myConn = peer.connect(roomId);
+          console.log('[DIAG] GUEST: peer.connect() 호출 완료, conn:', myConn);
           myConn.on("open", () => {
-            console.log("PeerJS: 방장과 데이터 채널 오픈 성공!");
+            console.log("[DIAG] GUEST: myConn.open 이벤트 발생! 데이터 채널 오픈 성공!");
             document.getElementById("initial-choice").style.display = "none";
             document.getElementById("connected-ui").style.display = "block";
           });
           myConn.on("error", (err) => {
-            console.error("PeerJS 연결 오류:", err);
+            console.error("[DIAG] GUEST: myConn.error:", err);
+          });
+          myConn.on("close", () => {
+            console.warn("[DIAG] GUEST: myConn.close 이벤트 발생");
+          });
+          myConn.on("iceStateChanged", (state) => {
+            console.log("[DIAG] GUEST: ICE state:", state);
           });
           myConn.on("data", (data) => {
             if (data.type === "PING") {
