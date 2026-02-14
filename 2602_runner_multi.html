@@ -625,12 +625,55 @@
       }
     }
 
+    // Weights for draft order (Lower skill = Higher priority)
+    const DRAFT_WEIGHTS = {
+      "이선생": 4,
+      "인섹": 3,
+      "댕균": 1,
+      "둥그레": 1,
+      "소우릎": 1
+    };
+
+    function getWeightedDraftOrder() {
+      let pool = [...CAPTAINS];
+      let order = [];
+
+      while (pool.length > 0) {
+        let totalWeight = 0;
+        pool.forEach(cap => {
+          totalWeight += (DRAFT_WEIGHTS[cap] || 1);
+        });
+
+        let randomVal = Math.random() * totalWeight;
+        let selectedCap = null;
+        let runningSum = 0;
+
+        for (let i = 0; i < pool.length; i++) {
+          const cap = pool[i];
+          const weight = DRAFT_WEIGHTS[cap] || 1;
+          runningSum += weight;
+          if (randomVal <= runningSum) {
+            selectedCap = cap;
+            break;
+          }
+        }
+
+        if (!selectedCap) selectedCap = pool[pool.length - 1];
+
+        order.push(selectedCap);
+        pool = pool.filter(c => c !== selectedCap);
+      }
+      return order;
+    }
+
     function gameStart() {
       if (!isHost) return;
       gameState.phase = "DRAFT";
       gameState.availablePlayers = JSON.parse(JSON.stringify(POOL_DATA));
-      // 점수가 모두 100이므로 정렬 의미 없음
-      gameState.draftOrder = [...CAPTAINS].sort(() => Math.random() - 0.5);
+
+      // Weighted Random Sort for Draft Order
+      gameState.draftOrder = getWeightedDraftOrder();
+
       gameState.pickIndex = 0;
       gameState.teams = {};
 
