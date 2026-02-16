@@ -109,6 +109,7 @@
 
   <script>
     const CAPTAINS = ["댕균", "둥그레", "소우릎", "이선생", "인섹"];
+    console.log("Runner League Draft - Version 1.60");
     let POOL_DATA = [];
 
     async function loadData() {
@@ -784,12 +785,19 @@
       });
 
       if (candidates.length > 0) {
-        const randIdx = Math.floor(Math.random() * candidates.length);
-        const pickName = candidates[randIdx].name;
+        // Find the maximum score among candidates
+        const maxScore = Math.max(...candidates.map(p => p.score || 0));
+        // Filter candidates who have the max score
+        const bestCandidates = candidates.filter(p => (p.score || 0) === maxScore);
+
+        console.log(`[AI Pick] Max Score: ${maxScore}, Candidates count: ${bestCandidates.length}`);
+
+        const randIdx = Math.floor(Math.random() * bestCandidates.length);
+        const pickName = bestCandidates[randIdx].name;
         const realIdx = gameState.availablePlayers.findIndex(
           (p) => p.name === pickName,
         );
-        console.log(`[AI Pick] Selected: ${pickName}`);
+        console.log(`[AI Pick] Selected: ${pickName} (Score: ${maxScore})`);
         processPick(capName, realIdx);
       } else {
         console.error("[AI Pick] No candidates found! This shouldn't happen unless pool is empty.");
