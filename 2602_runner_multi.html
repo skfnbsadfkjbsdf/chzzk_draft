@@ -113,7 +113,7 @@
 
     async function loadData() {
       try {
-        const response = await fetch("data/runner_pool.json");
+        const response = await fetch("data/runner_pool_1.json");
         if (!response.ok) throw new Error("데이터 로딩 실패");
         POOL_DATA = await response.json();
         console.log("선수 데이터 로드 완료:", POOL_DATA.length + "명");
