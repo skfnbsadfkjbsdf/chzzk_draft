@@ -109,7 +109,7 @@
 
   <script>
     const CAPTAINS = ["댕균", "둥그레", "소우릎", "이선생", "인섹"];
-    console.log("Runner League Draft - Version 1.60");
+    console.log("Runner League Draft - Version 1.70");
     let POOL_DATA = [];
 
     async function loadData() {
@@ -626,45 +626,9 @@
       }
     }
 
-    // Weights for draft order (Lower skill = Higher priority)
-    const DRAFT_WEIGHTS = {
-      "이선생": 4,
-      "인섹": 3,
-      "댕균": 1,
-      "둥그레": 1,
-      "소우릎": 1
-    };
-
+    // Fixed Draft Order (USER REQUESTED: 인섹 -> 이선생 -> 소우릎 -> 댕균 -> 둥그레)
     function getWeightedDraftOrder() {
-      let pool = [...CAPTAINS];
-      let order = [];
-
-      while (pool.length > 0) {
-        let totalWeight = 0;
-        pool.forEach(cap => {
-          totalWeight += (DRAFT_WEIGHTS[cap] || 1);
-        });
-
-        let randomVal = Math.random() * totalWeight;
-        let selectedCap = null;
-        let runningSum = 0;
-
-        for (let i = 0; i < pool.length; i++) {
-          const cap = pool[i];
-          const weight = DRAFT_WEIGHTS[cap] || 1;
-          runningSum += weight;
-          if (randomVal <= runningSum) {
-            selectedCap = cap;
-            break;
-          }
-        }
-
-        if (!selectedCap) selectedCap = pool[pool.length - 1];
-
-        order.push(selectedCap);
-        pool = pool.filter(c => c !== selectedCap);
-      }
-      return order;
+      return ["인섹", "이선생", "소우릎", "댕균", "둥그레"];
     }
 
     function gameStart() {
